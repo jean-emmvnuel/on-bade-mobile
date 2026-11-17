@@ -93,6 +93,8 @@ type Store = {
   session: Session;
   users: Record<string, User>;
   feed: Bading[];
+  /** Badings épinglés par l'équipe (« bading du jour »), dans l'ordre du serveur : affichés en tête du fil. */
+  pins: Pin[];
   notifications: AppNotification[];
   draft: Draft;
   mentionPolicy: MentionPolicy;
@@ -237,6 +239,17 @@ export function groupThreads(list: Comment[], hidden: (c: Comment) => boolean) {
 }
 
 /** Badings du moment (comme sur le site) : les plus drôles du fil, classés par rires, hors rebades ; le plus récent d'abord à égalité. */
+/** Épinglé par l'équipe ; `label` : étiquette facultative (« Bading du jour »). */
+export type Pin = { id: string; label?: string };
+
+/** Le fil avec les badings épinglés tout en haut (dans l'ordre des épingles), puis les autres du plus récent au plus ancien. */
+export function withPinsFirst(feed: Bading[], pins: Pin[]) {
+  if (!pins.length) return feed;
+  const rank = new Map(pins.map((p, i) => [p.id, i]));
+  const top = feed.filter((b) => rank.has(b.id)).sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
+  return [...top, ...feed.filter((b) => !rank.has(b.id))];
+}
+
 export function momentOf(feed: Bading[], limit = 20) {
   return feed.filter((b) => !b.rebadeOf).sort((a, b) => (b.likes - a.likes) || (b.createdAt - a.createdAt)).slice(0, limit);
 }
@@ -273,6 +286,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [pendingSignup, setPendingSignup] = useState<PendingSignup | null>(null);
   const [users, setUsers] = useState<Record<string, User>>(() => (USE_BACKEND ? {} : Object.fromEntries(seedUsers.map((u) => [u.id, u]))));
   // Vues de démo proportionnelles aux rires (un bading est lu bien plus souvent qu'il ne fait rire).
+  const [pins, setPins] = useState<Pin[]>([]);
   const [feed, setFeed] = useState<Bading[]>(() => (USE_BACKEND ? [] : [...seedMyBadings, ...seedBadings].map((b) => ({ ...b, views: b.views ?? Math.round(b.likes * 6.3 + 41) }))));
   const [notifications, setNotifications] = useState<AppNotification[]>(USE_BACKEND ? [] : seedNotifications);
   const [draft, setDraft] = useState<Draft>({ text: '', anonymous: false, image: null });
@@ -340,7 +354,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearContent = useCallback(() => {
-    setFeed([]); setComments([]); setNotifications([]); setFavorites([]); setBlocked([]);
+    setFeed([]); setPins([]); setComments([]); setNotifications([]); setFavorites([]); setBlocked([]);
     setMyStickers([]); setRecentStickers([]); setCustomStickers({}); setUsers({});
     setBadge({ status: 'none' }); setDeletion({ status: 'none' }); setMentionPolicyState('everyone');
   }, []);
@@ -578,13 +592,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const loadFeed = useCallback(async () => {
     if (!USE_BACKEND) return;
-    const { badings = [], origins = [], users: people = [] } = await api.getFeed();
+    const { badings = [], origins = [], users: people = [], pinned = [] } = await api.getFeed();
     mergeUsers(people);
     const map = ids();
     const received = badings.map((b: any) => fromServerBading(b, map));
     const keep = new Set([...live.current.favorites, ...live.current.feed.filter((b) => b.authorId === ME_ID).map((b) => b.id)]);
     setFeed((f) => pruneFeed(f, received, api.FEED_PAGE_SIZE, keep));
-    mergeBadings([...badings, ...origins]);
+    mergeBadings([...badings, ...origins, ...pinned]);
+    // Épingles : seulement dans la première page du fil ; une épingle retirée disparaît au prochain chargement.
+    setPins(pinned.filter(Boolean).map((b: any) => ({ id: b.id, ...(b.pinnedLabel ? { label: b.pinnedLabel } : {}) })));
   }, [mergeUsers, mergeBadings]);
 
   const incoming = useRef([...incomingBadings]);
@@ -1019,6 +1035,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       session,
       users,
       feed: sortedFeed,
+      pins,
       notifications,
       draft,
       mentionPolicy,
@@ -1088,7 +1105,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPendingLink,
       searchPseudos,
     }),
-    [ready, onboarded, session, users, sortedFeed, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, setMentionPolicy, requestBadge, comments, commentsFor, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
+    [ready, onboarded, session, users, sortedFeed, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, setMentionPolicy, requestBadge, comments, commentsFor, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

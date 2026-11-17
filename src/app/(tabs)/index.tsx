@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -19,7 +19,7 @@ import { Button } from '@/components/Button';
 import { LogoMark } from '@/components/Logo';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { useToast } from '@/components/Toast';
-import { useStore } from '@/data/store';
+import { useStore, withPinsFirst } from '@/data/store';
 import { errorMessage } from '@/lib/api';
 import type { Bading } from '@/data/types';
 import { useReduceTransparency } from '@/lib/motion';
@@ -47,7 +47,10 @@ function Skeleton() {
 export default function Feed() {
   const insets = useSafeAreaInsets();
   const reduce = useReducedMotion();
-  const { feed, loadFeed, refreshFeed } = useStore();
+  const { feed, pins, loadFeed, refreshFeed } = useStore();
+  // Badings épinglés par l'équipe : tout en haut du fil.
+  const data = useMemo(() => withPinsFirst(feed, pins), [feed, pins]);
+  const pinLabel = useMemo(() => new Map(pins.map((p) => [p.id, p.label ?? ''])), [pins]);
   const toast = useToast();
   const { open, sheet } = useBadingActions();
   // Le squelette ne s'affiche que si rien n'est encore en cache.
@@ -100,12 +103,12 @@ export default function Feed() {
     ({ item, index }: { item: Bading; index: number }) =>
       index < 6 && !reduce ? (
         <Animated.View entering={FadeInDown.duration(380).delay(index * 45)}>
-          <BadingCard b={item} onMore={open} />
+          <BadingCard b={item} onMore={open} pin={pinLabel.get(item.id)} />
         </Animated.View>
       ) : (
-        <BadingCard b={item} onMore={open} />
+        <BadingCard b={item} onMore={open} pin={pinLabel.get(item.id)} />
       ),
-    [open, reduce],
+    [open, reduce, pinLabel],
   );
 
   return (
@@ -117,7 +120,7 @@ export default function Feed() {
       ) : (
         <PullToRefresh onRefresh={refresh} scrollY={scrollY} top={insets.top + HEADER}>
         <Animated.FlatList
-          data={feed}
+          data={data}
           keyExtractor={(b) => b.id}
           renderItem={renderItem}
           onScroll={onScroll}

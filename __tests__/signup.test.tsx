@@ -129,3 +129,21 @@ describe('Notifications push (jeton Expo)', () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe('Fil : badings épinglés par l’équipe', () => {
+  const bading = (id: string, createdAt: number, extra = {}) => ({ id, authorId: 'srv-2', anonymous: false, text: 'Une histoire', createdAt, likes: 0, likedByMe: false, rebades: 0, shares: 0, ...extra });
+
+  it('le serveur envoie les épingles : gardées avec leur étiquette, même si le bading est plus ancien que la page', async () => {
+    let pinned: unknown[] = [bading('vieux', 1, { pinned: true, pinnedLabel: 'Bading du jour' })];
+    const { h } = await backendStore({
+      'GET /feed': () => ok({ badings: [bading('n1', 300), bading('n2', 200)], origins: [], users: [], pinned }),
+    });
+    await act(async () => h.result.current.loadFeed());
+    expect(h.result.current.pins).toEqual([{ id: 'vieux', label: 'Bading du jour' }]);
+    expect(mod.withPinsFirst(h.result.current.feed, h.result.current.pins).map((x) => x.id)).toEqual(['vieux', 'n1', 'n2']);
+
+    pinned = []; // épingle retirée dans le back-office
+    await act(async () => h.result.current.loadFeed());
+    expect(h.result.current.pins).toEqual([]);
+  });
+});

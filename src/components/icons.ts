@@ -48,3 +48,4 @@ export { default as Crop } from 'lucide-react-native/icons/crop';
 export { default as StickerIcon } from 'lucide-react-native/icons/sticker';
 export { default as BookmarkPlus } from 'lucide-react-native/icons/bookmark-plus';
 export { default as Flame } from 'lucide-react-native/icons/flame';
+export { default as Pin } from 'lucide-react-native/icons/pin';

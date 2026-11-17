@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Bookmark, Ellipsis, MessageCircle, Repeat2, Share2 } from '@/components/icons';
+import { Bookmark, Ellipsis, MessageCircle, Pin, Repeat2, Share2 } from '@/components/icons';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -90,7 +90,8 @@ function ActionIcon({ icon, label, count, onPress }: { icon: React.ReactNode; la
   );
 }
 
-export const BadingCard = memo(function BadingCard({ b, onMore }: { b: Bading; onMore?: (b: Bading) => void }) {
+/** `pin` : bading épinglé par l'équipe en tête du fil ; la chaîne est son étiquette (vide : « Épinglé »). */
+export const BadingCard = memo(function BadingCard({ b, onMore, pin }: { b: Bading; onMore?: (b: Bading) => void; pin?: string }) {
   const { users, toggleLike, getBading, session, commentCount } = useStore();
   const openShare = useShare();
   const { user } = displayName(b, users);
@@ -112,6 +113,12 @@ export const BadingCard = memo(function BadingCard({ b, onMore }: { b: Bading; o
       style={({ pressed }) => [bubbleStyle(anon, pressed), { marginHorizontal: space.md, marginBottom: space.lg + 2, paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.xs, gap: 10 }]}>
       {({ pressed }) => (
         <>
+          {pin !== undefined && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} accessibilityLabel={pin ? `Épinglé : ${pin}` : 'Épinglé'}>
+              <Pin size={14} color={colors.brandInk} />
+              <AppText variant="small" color={colors.brandInk}>{pin || 'Épinglé'}</AppText>
+            </View>
+          )}
           {plainRebade && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Repeat2 size={14} color={colors.text3} />

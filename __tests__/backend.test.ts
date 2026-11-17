@@ -3,7 +3,7 @@ import { ApiError, errorMessage, request } from '@/lib/api';
 import { PSEUDO_RULES, pseudoFormatError } from '@/lib/pseudo';
 import { fromServerBading, fromServerComment, fromServerSticker, fromServerUser, idMapper, pruneFeed } from '@/data/server';
 import { ME_ID } from '@/data/seed';
-import { momentOf } from '@/data/store';
+import { momentOf, withPinsFirst } from '@/data/store';
 import type { Bading } from '@/data/types';
 
 const ids = idMapper('srv-me');
@@ -101,5 +101,17 @@ describe('Badings du moment', () => {
     const feed = [b('a', 2, 1), b('b', 9, 1), b('c', 2, 5), b('r', 50, 9, { rebadeOf: 'b' })];
     expect(momentOf(feed).map((x) => x.id)).toEqual(['b', 'c', 'a']);
     expect(momentOf(feed, 1).map((x) => x.id)).toEqual(['b']);
+  });
+});
+
+describe('Badings épinglés', () => {
+  const b = (id: string, createdAt: number) =>
+    ({ id, authorId: 'u', anonymous: false, text: 'x', createdAt, likes: 0, likedByMe: false, rebades: 0, shares: 0 }) as Bading;
+
+  it('tout en haut du fil, dans l’ordre des épingles, puis les autres sans changer', () => {
+    const feed = [b('a', 5), b('b', 4), b('c', 3), b('d', 2)];
+    expect(withPinsFirst(feed, [{ id: 'd' }, { id: 'b', label: 'Bading du jour' }]).map((x) => x.id)).toEqual(['d', 'b', 'a', 'c']);
+    expect(withPinsFirst(feed, [])).toBe(feed);
+    expect(withPinsFirst(feed, [{ id: 'absent' }]).map((x) => x.id)).toEqual(['a', 'b', 'c', 'd']);
   });
 });
