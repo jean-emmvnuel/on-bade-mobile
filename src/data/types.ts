@@ -44,7 +44,7 @@ export type Comment = {
   authorId: string;
   text: string;
   createdAt: number;
-  /** Replies are one level deep: a reply to a reply hangs off the same root comment. */
+  /** Commentaire auquel on répond : les réponses forment un arbre, sans limite de niveau. */
   parentId: string | null;
   /** Pseudo being answered, shown as « en réponse à @x ». */
   replyTo?: string;
@@ -53,6 +53,8 @@ export type Comment = {
   deleted?: boolean;
   /** Commentaire-sticker : id d'un sticker intégré ou personnel (le texte est alors vide). */
   sticker?: string;
+  /** Note vocale (le texte est alors vide) : adresse du son, durée et forme d'onde (barres de 0 à 100). */
+  audio?: VoiceClip;
 };
 
 export type NotificationKind = 'like' | 'rebade' | 'mention' | 'badge' | 'comment' | 'reply';
@@ -71,3 +73,8 @@ export type AppNotification = {
 };
 
 export type MentionPolicy = 'everyone' | 'nobody';
+
+/** Note vocale d'un commentaire. */
+export type VoiceClip = { src: string; durationMs: number; waveform: number[] };
+/** Note vocale enregistrée, prête à être envoyée (data URL base64). */
+export type VoiceRecording = { dataUrl: string; durationMs: number; waveform: number[] };

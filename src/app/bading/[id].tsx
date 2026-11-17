@@ -120,17 +120,12 @@ export default function BadingDetail() {
           </View>
           {!!b.text && <RichText variant="story">{b.text}</RichText>}
           {b.image && <BadingImage image={b.image} maxHeight={2000} onPress={() => setZoom(true)} />}
-          <AppText variant="meta" color={colors.text3}>{date}</AppText>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.lg, paddingTop: space.md, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
-            <AppText variant="meta" color={colors.text2}><AppText variant="label">{compact(b.likes)}</AppText> rires</AppText>
-            <AppText variant="meta" color={colors.text2}><AppText variant="label">{compact(nComments)}</AppText> commentaires</AppText>
-            <AppText variant="meta" color={colors.text2}><AppText variant="label">{compact(b.rebades)}</AppText> rebades</AppText>
-            {b.authorId === session?.user.id && <AppText variant="meta" color={colors.text2}><AppText variant="label">{compact(b.views ?? 0)}</AppText> vues</AppText>}
-          </View>
+          {/* Comme sur le site : rires, commentaires et rebades comptés une seule fois, sur les boutons ; les vues seulement pour l'auteur. */}
+          <AppText variant="meta" color={colors.text3}>{date}{b.authorId === session?.user.id ? ` · ${compact(b.views ?? 0)} vue${(b.views ?? 0) > 1 ? 's' : ''}` : ''}</AppText>
           <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
             <LaughButton active={b.likedByMe} count={b.likes} onToggle={() => toggleLike(b.id)} />
-            <Pressable onPress={() => composer.current?.focus()} accessibilityRole="button" accessibilityLabel="Commenter" style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}><MessageCircle size={21} color={colors.text2} /></Pressable>
-            <Pressable onPress={() => router.push(`/rebade/${b.id}`)} accessibilityRole="button" accessibilityLabel="Rebader" style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}><Repeat2 size={22} color={colors.text2} /></Pressable>
+            <Pressable onPress={() => composer.current?.focus()} accessibilityRole="button" accessibilityLabel={`Commenter, ${nComments} commentaires`} style={{ minHeight: 44, minWidth: 44, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' }}><MessageCircle size={21} color={colors.text2} />{nComments > 0 && <AppText variant="meta" color={colors.text2}>{compact(nComments)}</AppText>}</Pressable>
+            <Pressable onPress={() => router.push(`/rebade/${b.id}`)} accessibilityRole="button" accessibilityLabel={`Rebader, ${b.rebades} rebades`} style={{ minHeight: 44, minWidth: 44, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' }}><Repeat2 size={22} color={colors.text2} />{b.rebades > 0 && <AppText variant="meta" color={colors.text2}>{compact(b.rebades)}</AppText>}</Pressable>
             <Pressable onPress={() => openShare(b)} accessibilityRole="button" accessibilityLabel="Partager" style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}><Share2 size={20} color={colors.text2} /></Pressable>
             <FavoriteButton id={b.id} size={21} />
           </View>

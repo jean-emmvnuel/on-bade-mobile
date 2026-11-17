@@ -1,5 +1,3 @@
-import * as Clipboard from 'expo-clipboard';
-import * as Linking from 'expo-linking';
 import * as Sharing from 'expo-sharing';
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { Image, Platform, Share as RNShare, View } from 'react-native';
@@ -13,7 +11,8 @@ import { colors, fonts, radius, space } from '@/theme/tokens';
 import { AppText } from './AppText';
 import { Avatar } from './Avatar';
 import { tap } from './haptics';
-import { Copy, Ellipsis, ImageIcon, MessageCircle } from './icons';
+import { Button } from './Button';
+import { ImageIcon } from './icons';
 import { LogoMark } from './Logo';
 import { PressableScale } from './PressableScale';
 import { Sheet } from './Sheet';
@@ -46,18 +45,9 @@ function ShareCard({ b }: { b: Bading }) {
           <LogoMark size={22} color="#FFFFFF" />
           <AppText style={{ fontFamily: fonts.display, fontSize: 17 }} color="#FFFFFF">on bade</AppText>
         </View>
-        <AppText variant="small" color="#F1E4FF">onbade.vercel.app</AppText>
+        <AppText variant="small" color="#F1E4FF">onbade.com</AppText>
       </View>
     </View>
-  );
-}
-
-function Target({ label, bg, icon, onPress }: { label: string; bg: string; icon: React.ReactNode; onPress: () => void }) {
-  return (
-    <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={{ alignItems: 'center', gap: 6, width: 60 }}>
-      <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>
-      <AppText variant="small" color={colors.text2} style={{ textAlign: 'center' }} numberOfLines={2}>{label}</AppText>
-    </PressableScale>
   );
 }
 
@@ -82,31 +72,15 @@ export function ShareProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => toast(what), 250);
   };
 
-  const whatsapp = async () => {
-    const url = `whatsapp://send?text=${encodeURIComponent(msg)}`;
-    const ok = Platform.OS !== 'web' && (await Linking.canOpenURL(url).catch(() => false));
-    await Linking.openURL(ok ? url : `https://wa.me/?text=${encodeURIComponent(msg)}`);
-    done('Envoyé vers WhatsApp');
-  };
-  const facebook = async () => {
-    if (!link) return;
-    // Facebook only accepts a URL: it builds its own preview from the page.
-    await Linking.openURL(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link.web)}`);
-    done('Ouvert dans Facebook');
-  };
-  const copy = async () => {
-    if (!link) return;
-    await Clipboard.setStringAsync(link.share);
-    done('Lien copié');
-  };
-  const image = async () => {
+  // Comme sur le site : une seule action, « Partager en story » (image du bading) ; sans partage d'image possible, le lien.
+  const story = async () => {
     if (Platform.OS === 'web' || !(await Sharing.isAvailableAsync())) {
-      toast("Le partage en image marche sur téléphone");
+      await more();
       return;
     }
     try {
       const uri = await captureRef(card, { format: 'png', quality: 1, result: 'tmpfile' });
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Partager le bading', UTI: 'public.png' });
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Partager en story', UTI: 'public.png' });
       done('Image partagée');
     } catch {
       toast("L'image n'a pas pu être créée. Réessaie.");
@@ -131,16 +105,8 @@ export function ShareProvider({ children }: { children: React.ReactNode }) {
             <View ref={card} collapsable={false}>
               <ShareCard b={b} />
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Target label="WhatsApp" bg="#25D366" icon={<MessageCircle size={26} color="#fff" fill="#fff" />} onPress={whatsapp} />
-              <Target label="Facebook" bg="#1877F2" icon={<AppText style={{ fontFamily: fonts.display, fontSize: 28, lineHeight: 32 }} color="#fff">f</AppText>} onPress={facebook} />
-              <Target label="En image" bg={colors.brand} icon={<ImageIcon size={24} color="#fff" />} onPress={image} />
-              <Target label="Copier le lien" bg={colors.surface2} icon={<Copy size={22} color={colors.text} />} onPress={copy} />
-              <Target label="Autres" bg={colors.surface2} icon={<Ellipsis size={22} color={colors.text} />} onPress={more} />
-            </View>
-            <AppText variant="small" color={colors.text3} numberOfLines={1} selectable>
-              {link?.share}
-            </AppText>
+            <Button label="Partager en story" icon={<ImageIcon size={18} color={colors.onBrand} />} onPress={story} />
+            <AppText variant="small" color={colors.text3} style={{ textAlign: 'center' }}>Statut WhatsApp, story Snapchat, Facebook, Instagram…</AppText>
           </View>
         )}
       </Sheet>

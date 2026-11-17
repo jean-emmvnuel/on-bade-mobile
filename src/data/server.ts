@@ -83,6 +83,7 @@ export function fromServerComment(c: any, ids: IdMapper): Comment {
   };
   if (c.replyTo) out.replyTo = c.replyTo;
   if (c.sticker ?? c.stickerId) out.sticker = c.sticker ?? c.stickerId;
+  if (c.audio?.src) out.audio = { src: c.audio.src, durationMs: c.audio.durationMs ?? 0, waveform: Array.isArray(c.audio.waveform) ? c.audio.waveform : [] };
   if (c.deleted) out.deleted = true;
   return out;
 }

@@ -80,7 +80,13 @@
           "microphonePermission": false
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "On Bade utilise le micro pour enregistrer tes notes vocales en commentaire, uniquement pendant que tu restes appuyé sur le bouton micro."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

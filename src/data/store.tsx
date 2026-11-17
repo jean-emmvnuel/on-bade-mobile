@@ -17,7 +17,7 @@ import { ApiError, USE_BACKEND, fireAndForget, isApiError } from '@/lib/api';
 import { startBadingActivity } from '@/lib/liveActivity';
 import { notifyLocal, registerForPush, type PushStatus } from '@/lib/notifications';
 
-import type { AppNotification, Bading, BadingImage, Comment, CustomSticker, MentionPolicy, User } from './types';
+import type { AppNotification, Bading, BadingImage, Comment, CustomSticker, MentionPolicy, User, VoiceRecording } from './types';
 
 export { USE_BACKEND };
 
@@ -147,9 +147,11 @@ type Store = {
   requestBadge: (links: string[], documentUri?: string | null) => Promise<void>;
   comments: Comment[];
   commentsFor: (badingId: string) => { root: Comment; replies: Comment[] }[];
+  /** Commentaires en arbre : chaque réponse sous le commentaire auquel elle répond, sur 4 niveaux. */
+  commentTree: (badingId: string) => CommentNode[];
   commentCount: (badingId: string) => number;
   /** F8 : un texte OU un sticker (intégré ou personnel). null si le texte est refusé. */
-  addComment: (badingId: string, text: string, parent?: Comment, sticker?: string) => Promise<Comment | null>;
+  addComment: (badingId: string, text: string, parent?: Comment, sticker?: string, audio?: VoiceRecording) => Promise<Comment | null>;
   /** Stickers personnels de tout le monde (pour afficher ceux des commentaires). */
   customStickers: Record<string, CustomSticker>;
   /** Ma collection : stickers créés + stickers enregistrés depuis les commentaires (comme sur TikTok). */
@@ -212,6 +214,34 @@ export function descendantIds(list: Comment[], id: string) {
  * (réponses aux réponses comprises) dans l'ordre chronologique ; « en réponse à @x » dit à qui chacune répond.
  * Une réponse dont un commentaire au-dessus est masqué (supprimé, auteur bloqué, pas chargé) est masquée aussi.
  */
+export type CommentNode = { comment: Comment; children: CommentNode[] };
+
+/** Niveaux de réponses imbriquées (comme le site) : au-delà, les réponses se rangent au dernier niveau, « en réponse à @… ». */
+export const MAX_REPLY_DEPTH = 4;
+
+/**
+ * Arbre des commentaires d'un bading : racines (les plus ris d'abord), puis chaque réponse sous son commentaire,
+ * du plus ancien au plus récent, sur MAX_REPLY_DEPTH niveaux. Une réponse dont le parent est masqué disparaît avec lui.
+ */
+export function buildTree(list: Comment[], hidden: (c: Comment) => boolean): CommentNode[] {
+  const visible = list.filter((c) => !hidden(c));
+  const byParent = new Map<string, Comment[]>();
+  visible.forEach((c) => { if (c.parentId) byParent.set(c.parentId, [...(byParent.get(c.parentId) ?? []), c]); });
+  const byDate = (a: Comment, b: Comment) => a.createdAt - b.createdAt;
+  const descendants = (id: string): Comment[] => (byParent.get(id) ?? []).flatMap((c) => [c, ...descendants(c.id)]);
+  const build = (c: Comment, depth: number): CommentNode => ({
+    comment: c,
+    // Dernier niveau : toutes les réponses plus profondes à plat, à côté.
+    children: depth >= MAX_REPLY_DEPTH ? [] : depth === MAX_REPLY_DEPTH - 1
+      ? descendants(c.id).sort(byDate).map((d) => ({ comment: d, children: [] }))
+      : (byParent.get(c.id) ?? []).sort(byDate).map((d) => build(d, depth + 1)),
+  });
+  return visible
+    .filter((c) => c.parentId === null)
+    .sort((a, b) => b.likes - a.likes || a.createdAt - b.createdAt)
+    .map((c) => build(c, 0));
+}
+
 export function groupThreads(list: Comment[], hidden: (c: Comment) => boolean) {
   const byId = new Map(list.map((c) => [c.id, c]));
   const rootOf = (c: Comment): string | null => {
@@ -750,6 +780,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const commentsFor = useCallback(
     (badingId: string) => groupThreads(comments.filter((c) => c.badingId === badingId), (c) => !!c.deleted || blocked.includes(c.authorId)),
     [comments, blocked],
+  );  const commentTree = useCallback(
+    (badingId: string) => buildTree(comments.filter((c) => c.badingId === badingId), (c) => !!c.deleted || blocked.includes(c.authorId)),
+    [comments, blocked],
   );
   const commentCount = useCallback(
     (badingId: string) => {
@@ -764,10 +797,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setFeed((f) => f.map((b) => (b.id === badingId && typeof b.commentCount === 'number' ? { ...b, commentCount: Math.max(0, b.commentCount + delta) } : b)));
 
   const addComment = useCallback(
-    async (badingId: string, text: string, parent?: Comment, sticker?: string) => {
-      const t = sticker ? '' : text.trim();
-      if (!sticker && (!t || t.length > RULES.commentMax)) return null;
-      if (!sticker && BANNED.some((w) => t.toLowerCase().includes(w))) return null;
+    async (badingId: string, text: string, parent?: Comment, sticker?: string, audio?: VoiceRecording) => {
+      const t = sticker || audio ? '' : text.trim();
+      if (!sticker && !audio && (!t || t.length > RULES.commentMax)) return null;
+      if (!sticker && !audio && BANNED.some((w) => t.toLowerCase().includes(w))) return null;
       const replyTo = parent ? live.current.users[parent.authorId]?.pseudo : undefined;
       let c: Comment;
       if (USE_BACKEND) {
@@ -777,6 +810,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             stickerId: sticker ?? null,
             // Le serveur rattache la réponse au commentaire exact et notifie son auteur.
             parentId: parent ? parent.id : null,
+            ...(audio ? { audio } : {}),
           });
           c = fromServerComment(comment, ids());
           if (!c.replyTo && replyTo) c.replyTo = replyTo;
@@ -1074,6 +1108,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       requestBadge,
       comments,
       commentsFor,
+      commentTree,
       commentCount,
       addComment,
       customStickers,
@@ -1105,7 +1140,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPendingLink,
       searchPseudos,
     }),
-    [ready, onboarded, session, users, sortedFeed, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, setMentionPolicy, requestBadge, comments, commentsFor, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
+    [ready, onboarded, session, users, sortedFeed, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, setMentionPolicy, requestBadge, comments, commentsFor, commentTree, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -134,7 +134,7 @@ export default function Compose() {
               accessibilityLabel="Ton bading"
               style={{ color: colors.text, fontFamily: fonts.bodyMedium, fontSize: 20, lineHeight: 28, minHeight: image ? 56 : 160, textAlignVertical: 'top', padding: 0 }}
             />
-            <CharMeter length={len} max={max} caption={!!image} />
+            <CharMeter length={len} max={max} min={RULES.minLength} caption={!!image} />
             {image && (
               <Animated.View entering={FadeIn.duration(220)} style={{ marginTop: space.sm, borderRadius: radius.lg, overflow: 'hidden', aspectRatio: image.width / image.height, backgroundColor: colors.surface2 }}>
                 <Image source={{ uri: image.uri }} style={{ width: '100%', height: '100%' }} accessibilityLabel="Image du bading" />

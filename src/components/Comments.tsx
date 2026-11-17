@@ -1,13 +1,15 @@
 import { router } from 'expo-router';
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { compact, descendantIds, MAX_MY_STICKERS, RULES, timeAgo, useStore } from '@/data/store';
-import { STICKER_THEMES, STICKERS, getSticker } from '@/data/stickers';
+import { compact, descendantIds, MAX_MY_STICKERS, RULES, timeAgo, useStore, type CommentNode } from '@/data/store';
+import { STICKERS, getSticker } from '@/data/stickers';
 import { errorMessage } from '@/lib/api';
 import { pickImage, type PickedImage } from '@/lib/pickImage';
+import { useAudioRecorder } from 'expo-audio';
+import { barFromDb, clock, currentVoiceMax, MIN_VOICE_MS, prepareMic, releaseMic, toRecording, VOICE_OPTIONS, voiceMaxSeconds } from '@/lib/voice';
 import type { Comment } from '@/data/types';
 import { colors, fonts, radius, space } from '@/theme/tokens';
 
@@ -16,7 +18,8 @@ import { Avatar } from './Avatar';
 import { tap } from './haptics';
 import { Button } from './Button';
 import { ImageCropper } from './ImageCropper';
-import { BookmarkPlus, Laugh, Plus, StickerIcon, Trash2, X } from './icons';
+import { ArrowUp, BookmarkPlus, ChevronDown, Laugh, Mic, Plus, StickerIcon, Trash2, X } from './icons';
+import { VoiceNote } from './VoiceNote';
 import { Sticker } from './Sticker';
 import { PressableScale } from './PressableScale';
 import { RichText } from './RichText';
@@ -24,44 +27,61 @@ import { Sheet, SheetItem } from './Sheet';
 import { useToast } from './Toast';
 import { Verified } from './Verified';
 
-function CommentRow({ c, reply, onReply, onMore, onDelete, onSticker }: { c: Comment; reply?: boolean; onReply: (c: Comment) => void; onMore: (c: Comment) => void; onDelete: (c: Comment) => void; onSticker: (id: string) => void }) {
+const PREVIEW_REPLIES = 2;
+
+type RowProps = {
+  c: Comment; reply?: boolean; showReplyTo?: boolean; replyCount?: number; collapsed?: boolean; onToggle?: () => void;
+  onReply: (c: Comment) => void; onMore: (c: Comment) => void; onDelete: (c: Comment) => void; onSticker: (id: string) => void;
+};
+
+function CommentRow({ c, reply, showReplyTo, replyCount = 0, collapsed, onToggle, onReply, onMore, onDelete, onSticker }: RowProps) {
   const { users, toggleCommentLike, session } = useStore();
   const mine = c.authorId === session?.user.id;
   const u = users[c.authorId];
   return (
-    <Animated.View entering={FadeIn.duration(240)} layout={LinearTransition} style={{ flexDirection: 'row', gap: space.md, paddingLeft: reply ? 52 : 0 }}>
+    <Animated.View entering={FadeIn.duration(240)} layout={LinearTransition} style={{ flexDirection: 'row', gap: space.md }}>
       <Pressable onPress={() => onMore(c)} onLongPress={() => onMore(c)} accessibilityLabel={`Profil de ${u?.pseudo}`}>
         <Avatar user={u ?? null} size={reply ? 28 : 36} />
       </Pressable>
-      <View style={{ flex: 1, gap: 3 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <AppText variant="label" style={{ fontSize: 14 }}>{u?.pseudo ?? 'Badeur'}</AppText>
+          <AppText variant="label" style={{ fontSize: 14, flexShrink: 1 }} numberOfLines={1}>{u?.pseudo ?? 'Badeur'}</AppText>
           {u?.verified && <Verified size={13} />}
           <AppText variant="small" color={colors.text3}>· {timeAgo(c.createdAt)}</AppText>
         </View>
-        {c.replyTo && <AppText variant="small" color={colors.text3}>en réponse à <AppText variant="small" color={colors.brandInk}>@{c.replyTo}</AppText></AppText>}
-        {c.sticker ? (
+        {showReplyTo && c.replyTo && <AppText variant="small" color={colors.text3}>en réponse à <AppText variant="small" color={colors.brandInk}>@{c.replyTo}</AppText></AppText>}
+        {c.audio ? (
+          <VoiceNote audio={c.audio} />
+        ) : c.sticker ? (
           <Pressable onPress={() => onSticker(c.sticker!)} accessibilityHint="Ajouter ce sticker à tes stickers" style={{ alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 4 }}>
             <Sticker id={c.sticker} size={reply ? 100 : 116} />
           </Pressable>
         ) : (
           <RichText variant="body">{c.text}</RichText>
         )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.lg, marginTop: 2 }}>
-          <Pressable onPress={() => { tap(); toggleCommentLike(c.id); }} hitSlop={10} accessibilityRole="button" accessibilityLabel={c.likedByMe ? 'Retirer mon rire' : 'Rire à ce commentaire'} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 32 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: space.lg, marginTop: 2 }}>
+          <Pressable onPress={() => { tap(); toggleCommentLike(c.id); }} hitSlop={10} accessibilityRole="button" accessibilityLabel={c.likedByMe ? 'Retirer mon rire' : 'Rire à ce commentaire'} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 36, minWidth: 32 }}>
             <Laugh size={15} color={c.likedByMe ? colors.brandInk : colors.text3} fill={c.likedByMe ? colors.brandSoft : 'transparent'} />
             {c.likes > 0 && <AppText variant="small" color={c.likedByMe ? colors.brandInk : colors.text3}>{c.likes}</AppText>}
           </Pressable>
-          <Pressable onPress={() => onReply(c)} hitSlop={10} accessibilityRole="button" style={{ minHeight: 32, justifyContent: 'center' }}>
+          <Pressable onPress={() => onReply(c)} hitSlop={10} accessibilityRole="button" style={{ minHeight: 36, justifyContent: 'center' }}>
             <AppText variant="small" color={colors.text2}>Répondre</AppText>
           </Pressable>
+          {replyCount > 0 && onToggle && (
+            <Pressable onPress={onToggle} hitSlop={10} accessibilityRole="button" accessibilityState={{ expanded: !collapsed }}
+              accessibilityLabel={collapsed ? `Afficher les réponses (${replyCount})` : `Masquer les réponses (${replyCount})`}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 3, minHeight: 36 }}>
+              <View style={{ transform: [{ rotate: collapsed ? '-90deg' : '0deg' }] }}><ChevronDown size={15} color={colors.text3} /></View>
+              <AppText variant="small" color={colors.text3}>{replyCount}</AppText>
+            </Pressable>
+          )}
           {mine && (
-            <Pressable onPress={() => onDelete(c)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Supprimer mon commentaire" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 32 }}>
+            <Pressable onPress={() => onDelete(c)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Supprimer mon commentaire" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 36 }}>
               <Trash2 size={14} color={colors.text3} />
               <AppText variant="small" color={colors.text3}>Supprimer</AppText>
             </Pressable>
           )}
-          <Pressable onPress={() => onMore(c)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Options du commentaire" style={{ minHeight: 32, justifyContent: 'center' }}>
+          <Pressable onPress={() => onMore(c)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Options du commentaire" style={{ minHeight: 36, minWidth: 28, justifyContent: 'center' }}>
             <AppText variant="small" color={colors.text3}>•••</AppText>
           </Pressable>
         </View>
@@ -70,47 +90,63 @@ function CommentRow({ c, reply, onReply, onMore, onDelete, onSticker }: { c: Com
   );
 }
 
-// Tree lines: a rail drops from the root avatar (36 px, centre x = 18) and curves
-// into every reply avatar (28 px, at x = 52). Geometry is measured, not guessed.
-const RAIL_X = 17;
-const ROOT_AVATAR = 36;
-const ELBOW_R = 12;
+const countAll = (nodes: CommentNode[]): number => nodes.reduce((n, x) => n + 1 + countAll(x.children), 0);
+const involves = (nodes: CommentNode[], me?: string): boolean => !!me && nodes.some((x) => x.comment.authorId === me || involves(x.children, me));
 
-function Thread({ children }: { children: React.ReactNode }) {
-  const items = (Array.isArray(children) ? children.flat() : [children]).filter(Boolean) as React.ReactElement[];
-  const [root, ...branches] = items;
-  const [ends, setEnds] = useState<Record<number, number>>({});
-  const lastIndex = branches.length - 1;
-  const railBottom = ends[lastIndex];
+type TreeCtx = {
+  open: Record<string, boolean>; setOpen: (id: string, v: boolean) => void; me?: string; pseudoOf: (id: string) => string | undefined;
+  row: Pick<RowProps, 'onReply' | 'onMore' | 'onDelete' | 'onSticker'>;
+};
+
+/** Un commentaire et ses réponses (récursif) : chaque réponse est rangée sous le commentaire auquel elle répond. */
+function Node({ node, depth, parent, ctx }: { node: CommentNode; depth: number; parent: Comment | null; ctx: TreeCtx }) {
+  const c = node.comment;
+  const kids = node.children;
+  const state = ctx.open[c.id]; // true = ouvert, false = replié, undefined = automatique
+  const collapsed = state === false;
+  const expanded = state ?? (c.authorId === ctx.me || involves(kids, ctx.me));
+  const shown = collapsed ? [] : expanded ? kids : kids.slice(0, PREVIEW_REPLIES);
+  const hidden = collapsed ? 0 : kids.length - shown.length;
+  const showReplyTo = !!parent && (c.parentId !== parent.id || c.replyTo !== ctx.pseudoOf(parent.authorId));
   return (
-    <View style={{ gap: space.md }}>
-      {root}
-      {branches.length > 0 && railBottom !== undefined && (
-        <View pointerEvents="none" style={{ position: 'absolute', left: RAIL_X, top: ROOT_AVATAR + 4, width: 2, height: Math.max(0, railBottom - (ROOT_AVATAR + 4)), backgroundColor: colors.line, borderRadius: 1 }} />
-      )}
-      {branches.map((child, i) => (
-        <View key={child.key ?? i} onLayout={(e) => { const y = e.nativeEvent.layout.y + 2; setEnds((m) => (m[i] === y ? m : { ...m, [i]: y })); }}>
-          <View pointerEvents="none" style={{ position: 'absolute', left: RAIL_X, top: 2, width: 52 - RAIL_X - 4, height: ELBOW_R, borderLeftWidth: 2, borderBottomWidth: 2, borderBottomLeftRadius: ELBOW_R, borderColor: colors.line }} />
-          {child}
+    <View>
+      <CommentRow c={c} reply={depth > 0} showReplyTo={showReplyTo} replyCount={countAll(kids)} collapsed={collapsed}
+        onToggle={() => ctx.setOpen(c.id, collapsed)} {...ctx.row} />
+      {(shown.length > 0 || hidden > 0) && (
+        // Trait de rattachement : il descend sous l'avatar du commentaire, le long de ses réponses.
+        <View style={{ marginLeft: depth === 0 ? 17 : 13, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: colors.line, marginTop: space.sm, gap: space.md }}>
+          {shown.map((n) => <Node key={n.comment.id} node={n} depth={depth + 1} parent={c} ctx={ctx} />)}
+          {hidden > 0 && (
+            <Pressable onPress={() => ctx.setOpen(c.id, true)} hitSlop={6} accessibilityRole="button" style={{ minHeight: 32, justifyContent: 'center' }}>
+              <AppText variant="small" color={colors.brandInk}>{hidden > 1 ? `Voir les ${hidden} autres réponses` : 'Voir 1 autre réponse'}</AppText>
+            </Pressable>
+          )}
         </View>
-      ))}
+      )}
     </View>
   );
 }
 
-/** Comment threads: each root, then every reply below it (replies to replies included) in time order, folded after 2. */
+/** Fils de commentaires en arbre sur 4 niveaux (comme le site) ; plus bas, les réponses se rangent au 4ᵉ niveau. */
 export function CommentThreads({ badingId, onReply }: { badingId: string; onReply: (c: Comment) => void }) {
-  const { commentsFor, comments, session, removeComment, reportComment, myStickers, saveSticker, customStickers, users } = useStore();
+  const { commentTree, comments, session, removeComment, reportComment, myStickers, saveSticker, customStickers, users } = useStore();
   const toast = useToast();
   const [stickerMenu, setStickerMenu] = useState<string | null>(null);
   const stickerOwner = stickerMenu ? customStickers[stickerMenu]?.ownerId : undefined;
-  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [open, setOpenState] = useState<Record<string, boolean>>({});
   const [menu, setMenu] = useState<Comment | null>(null);
   const [confirm, setConfirm] = useState<Comment | null>(null);
-  const threads = commentsFor(badingId);
+  const tree = commentTree(badingId);
   const confirmHasReplies = !!confirm && [...descendantIds(comments, confirm.id)].some((id) => comments.some((c) => c.id === id && !c.deleted));
 
-  if (threads.length === 0) {
+
+  const ctx: TreeCtx = {
+    open, setOpen: (id, v) => setOpenState((o) => ({ ...o, [id]: v })), me: session?.user.id,
+    pseudoOf: (id) => users[id]?.pseudo,
+    row: { onReply, onMore: setMenu, onDelete: setConfirm, onSticker: setStickerMenu },
+  };
+
+  if (tree.length === 0) {
     return (
       <View style={{ padding: space.xl, alignItems: 'center', gap: 6 }}>
         <AppText variant="heading">Pas encore de commentaire</AppText>
@@ -121,36 +157,7 @@ export function CommentThreads({ badingId, onReply }: { badingId: string; onRepl
 
   return (
     <View style={{ padding: space.lg, gap: space.xl }}>
-      {threads.map(({ root, replies }) => {
-        // Threads I took part in stay unfolded, so answers to me are always visible.
-        const mine = root.authorId === session?.user.id || replies.some((r) => r.authorId === session?.user.id);
-        const state = open[root.id]; // true = open, false = collapsed, undefined = automatic
-        const collapsed = state === false;
-        const expanded = state ?? mine;
-        const shown = collapsed ? [] : expanded ? replies : replies.slice(0, 2);
-        const hidden = replies.length - shown.length;
-        const toggle = (v: boolean) => setOpen((o) => ({ ...o, [root.id]: v }));
-        return (
-          <Thread key={root.id}>
-            <CommentRow c={root} onReply={onReply} onMore={setMenu} onDelete={setConfirm} onSticker={setStickerMenu} />
-            {shown.map((r) => (
-              <CommentRow key={r.id} c={r} reply onReply={onReply} onMore={setMenu} onDelete={setConfirm} onSticker={setStickerMenu} />
-            ))}
-            {hidden > 0 && (
-              <Pressable onPress={() => toggle(true)} hitSlop={6} style={{ paddingLeft: 52, minHeight: 28, justifyContent: 'center' }} accessibilityRole="button" accessibilityState={{ expanded: false }}>
-                <AppText variant="small" color={colors.brandInk}>
-                  {collapsed ? `▸ Afficher ${replies.length > 1 ? `les ${replies.length} réponses` : 'la réponse'}` : hidden > 1 ? `Voir les ${hidden} autres réponses` : 'Voir 1 autre réponse'}
-                </AppText>
-              </Pressable>
-            )}
-            {replies.length > 0 && !collapsed && hidden === 0 && (
-              <Pressable onPress={() => toggle(false)} hitSlop={6} style={{ paddingLeft: 52, minHeight: 28, justifyContent: 'center' }} accessibilityRole="button" accessibilityState={{ expanded: true }}>
-                <AppText variant="small" color={colors.text3}>▾ Masquer les réponses</AppText>
-              </Pressable>
-            )}
-          </Thread>
-        );
-      })}
+      {tree.map((n) => <Node key={n.comment.id} node={n} depth={0} parent={null} ctx={ctx} />)}
       <Sheet visible={!!menu} onClose={() => setMenu(null)}>
         {menu?.authorId === session?.user.id ? (
           <SheetItem label="Supprimer mon commentaire" danger onPress={() => { const m = menu; setMenu(null); setTimeout(() => setConfirm(m), 250); }} />
@@ -198,7 +205,9 @@ export function CommentThreads({ badingId, onReply }: { badingId: string; onRepl
       <Sheet visible={!!confirm} onClose={() => setConfirm(null)} title="Supprimer ce commentaire ?">
         <View style={{ paddingHorizontal: space.xl, gap: space.lg }}>
           <AppText variant="body" color={colors.text2}>
-            {confirmHasReplies ? 'Les réponses à ce commentaire seront aussi supprimées. ' : ''}C'est définitif.
+            {confirm?.audio
+              ? `Il disparaît pour tout le monde${confirmHasReplies ? ', avec ses réponses' : ''}. L'équipe de modération peut encore l'écouter pendant 90 jours, puis il est effacé.`
+              : `${confirmHasReplies ? 'Les réponses à ce commentaire seront aussi supprimées. ' : ''}C'est définitif.`}
           </AppText>
           <View style={{ flexDirection: 'row', gap: space.md }}>
             <Button label="Annuler" kind="secondary" size="md" style={{ flex: 1 }} onPress={() => setConfirm(null)} />
@@ -227,6 +236,89 @@ export const CommentComposer = forwardRef<ComposerHandle, { badingId: string; on
   const [creating, setCreating] = useState<PickedImage | null>(null);
   const [parent, setParent] = useState<Comment | null>(null);
   const input = useRef<React.ComponentRef<typeof TextInput>>(null);
+
+  // ─── Note vocale : rester appuyé sur le micro, relâcher pour envoyer, glisser à gauche pour annuler, en haut pour verrouiller ───
+  const recorder = useAudioRecorder(VOICE_OPTIONS);
+  const [rec, setRec] = useState<{ ms: number; bars: number[]; locked: boolean; cancelling: boolean } | null>(null);
+  const voice = useRef<{ x0: number; y0: number; locked: boolean; levels: number[]; started: number; timer?: ReturnType<typeof setInterval>; ready: boolean; released: boolean } | null>(null);
+  const [maxSec, setMaxSec] = useState(currentVoiceMax());
+  useEffect(() => { voiceMaxSeconds().then(setMaxSec); }, []);
+  useEffect(() => () => { const v = voice.current; if (v?.timer) clearInterval(v.timer); if (v?.ready) recorder.stop().catch(() => {}); }, [recorder]);
+
+  const stopVoice = async (send: boolean) => {
+    const v = voice.current;
+    voice.current = null;
+    setRec(null);
+    if (!v) return;
+    if (v.timer) clearInterval(v.timer);
+    if (!v.ready) return;
+    const durationMs = Math.min(maxSec * 1000, Date.now() - v.started);
+    try { await recorder.stop(); } catch { /* déjà arrêté */ }
+    await releaseMic();
+    if (!send) return;
+    if (durationMs < MIN_VOICE_MS || !recorder.uri) { toast('Vocal trop court : reste appuyé sur le micro pour parler.'); return; }
+    if (sending) return;
+    setSending(true);
+    try {
+      const note = await toRecording(recorder.uri, durationMs, v.levels);
+      const c = await addComment(badingId, '', parent ?? undefined, undefined, note);
+      if (c) { tap(); setParent(null); onSent?.(c); }
+    } catch (e) {
+      toast(errorMessage(e, "Ton vocal n'a pas pu être envoyé. Réessaie."));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const beginVoice = async (x: number, y: number, locked = false) => {
+    if (voice.current || sending) return;
+    setPicker(false);
+    voice.current = { x0: x, y0: y, locked, levels: [], started: Date.now(), ready: false, released: false };
+    setRec({ ms: 0, bars: [], locked, cancelling: false });
+    try {
+      if ((await prepareMic()) === 'denied') {
+        voice.current = null; setRec(null);
+        toast('Accès au micro refusé : autorise-le dans les réglages du téléphone pour envoyer un vocal.');
+        return;
+      }
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+    } catch {
+      voice.current = null; setRec(null); await releaseMic();
+      toast("Le micro n'a pas pu démarrer.");
+      return;
+    }
+    const v = voice.current;
+    if (!v) { recorder.stop().catch(() => {}); releaseMic(); return; } // annulé pendant la demande d'accès
+    v.ready = true;
+    v.started = Date.now();
+    // Doigt relevé pendant la demande d'accès (première fois) : on n'enregistre pas par surprise.
+    if (v.released && !v.locked) { stopVoice(false); toast('C’est bon, le micro est prêt : reste appuyé pour parler.'); return; }
+    tap();
+    v.timer = setInterval(() => {
+      const st = recorder.getStatus();
+      const db = typeof st.metering === 'number' ? st.metering : -160;
+      v.levels.push(db);
+      const ms = Date.now() - v.started;
+      setRec((r) => (r ? { ...r, ms, bars: [...r.bars, barFromDb(db)].slice(-24) } : r));
+      if (ms >= maxSec * 1000) stopVoice(true);
+    }, 80);
+  };
+
+  const onMicMove = (x: number, y: number) => {
+    const v = voice.current;
+    if (!v || v.locked) return;
+    const dx = x - v.x0, dy = y - v.y0;
+    if (dx < -80) { stopVoice(false); return; }
+    if (dy < -60) { v.locked = true; setRec((r) => (r ? { ...r, locked: true } : r)); return; }
+    setRec((r) => (r ? { ...r, cancelling: dx < -40 } : r));
+  };
+  const onMicUp = () => {
+    const v = voice.current;
+    if (!v || v.locked) return;
+    if (!v.ready) { v.released = true; return; }
+    stopVoice(true);
+  };
 
   useImperativeHandle(ref, () => ({
     replyTo: (c) => {
@@ -260,7 +352,7 @@ export const CommentComposer = forwardRef<ComposerHandle, { badingId: string; on
     if (!r.ok) { if (r.error) toast(r.error); return; }
     setCreating(r.image);
   };
-  const tabIds = stTab === 'recent' ? recentStickers : stTab === 'mine' ? myStickers : STICKERS.filter((x) => x.theme === stTab).map((x) => x.id);
+  const tabIds = stTab === 'recent' ? recentStickers : stTab === 'mine' ? myStickers : STICKERS.map((x) => x.id);
 
   const send = async () => {
     if (sending) return;
@@ -297,7 +389,8 @@ export const CommentComposer = forwardRef<ComposerHandle, { badingId: string; on
       {picker && (
         <Animated.View entering={FadeInDown.duration(200)} style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4, padding: 6 }} style={{ borderBottomWidth: 1, borderBottomColor: colors.line }}>
-            {[['recent', 'Récents'], ['mine', 'Mes stickers'], ...STICKER_THEMES.filter(([k]) => k !== 'recent')].map(([k, l]) => (
+            {/* Réactions et Nouchi réunis en un seul onglet « Réactions », comme sur le site. */}
+            {[['recent', 'Récents'], ['mine', 'Mes stickers'], ['all', 'Réactions']].map(([k, l]) => (
               <Pressable key={k} onPress={() => setStTab(k)} accessibilityRole="tab" accessibilityState={{ selected: stTab === k }} style={{ height: 32, paddingHorizontal: 12, borderRadius: radius.pill, justifyContent: 'center', backgroundColor: stTab === k ? colors.surface2 : 'transparent' }}>
                 <AppText variant="small" color={stTab === k ? colors.text : colors.text2}>{k === 'mine' && myStickers.length ? `${l} · ${compact(myStickers.length)}` : l}</AppText>
               </Pressable>
@@ -362,15 +455,53 @@ export const CommentComposer = forwardRef<ComposerHandle, { badingId: string; on
         <Pressable onPress={() => setPicker((p) => !p)} accessibilityRole="button" accessibilityLabel="Envoyer un sticker" accessibilityState={{ expanded: picker }} hitSlop={6} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: picker ? colors.brandSoft : 'transparent' }}>
           <StickerIcon size={22} color={picker ? colors.brandInk : colors.text2} />
         </Pressable>
-        <PressableScale
-          onPress={send}
-          disabled={!text.trim() || tooLong || sending}
-          accessibilityRole="button"
-          accessibilityLabel="Publier le commentaire"
-          style={{ height: 40, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', opacity: !text.trim() || tooLong ? 0.4 : 1 }}>
-          <AppText variant="label" color={colors.onBrand}>Publier</AppText>
-        </PressableScale>
+        {!text.trim() ? (
+          <View
+            onTouchStart={(e) => beginVoice(e.nativeEvent.pageX, e.nativeEvent.pageY)}
+            onTouchMove={(e) => onMicMove(e.nativeEvent.pageX, e.nativeEvent.pageY)}
+            onTouchEnd={onMicUp}
+            onTouchCancel={() => stopVoice(false)}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Note vocale : reste appuyé pour enregistrer"
+            accessibilityActions={[{ name: 'activate', label: 'Enregistrer en mains libres' }]}
+            onAccessibilityAction={() => beginVoice(0, 0, true)}
+            style={{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: rec ? colors.danger : colors.brand, transform: [{ scale: rec ? 1.15 : 1 }], opacity: sending ? 0.5 : 1 }}>
+            <Mic size={20} color="#fff" />
+          </View>
+        ) : (
+          <PressableScale
+            onPress={send}
+            disabled={tooLong || sending}
+            accessibilityRole="button"
+            accessibilityLabel={parent ? 'Envoyer la réponse' : 'Envoyer le commentaire'}
+            style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', opacity: tooLong ? 0.4 : 1 }}>
+            <ArrowUp size={20} color={colors.onBrand} strokeWidth={2.6} />
+          </PressableScale>
+        )}
       </View>
+      {rec && (
+        <View accessibilityRole="text" accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingLeft: 12, paddingRight: 6, borderRadius: radius.pill, backgroundColor: colors.surface2, opacity: rec.cancelling ? 0.55 : 1 }}>
+          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger }} />
+          <AppText variant="label" style={{ fontVariant: ['tabular-nums'] }}>{clock(rec.ms)}<AppText variant="small" color={colors.text3}> / {clock(maxSec * 1000)}</AppText></AppText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, height: 24, flexShrink: 1, overflow: 'hidden' }}>
+            {rec.bars.map((h, i) => <View key={i} style={{ width: 3, height: `${Math.max(10, h)}%`, borderRadius: 2, backgroundColor: colors.danger }} />)}
+          </View>
+          <View style={{ flex: 1 }} />
+          {rec.locked ? (
+            <>
+              <Pressable onPress={() => stopVoice(false)} accessibilityRole="button" accessibilityLabel="Annuler le vocal" hitSlop={6} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+                <Trash2 size={18} color={colors.text2} />
+              </Pressable>
+              <Pressable onPress={() => stopVoice(true)} accessibilityRole="button" accessibilityLabel="Envoyer le vocal" style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
+                <ArrowUp size={18} color={colors.onBrand} strokeWidth={2.6} />
+              </Pressable>
+            </>
+          ) : (
+            <AppText variant="small" color={colors.text2} numberOfLines={1} style={{ flexShrink: 1 }}>‹ Glisse pour annuler · ↑ verrouiller</AppText>
+          )}
+        </View>
+      )}
       {tooLong && <AppText variant="small" color={colors.danger}>{RULES.commentMax} caractères maximum ({text.length}).</AppText>}
       <ImageCropper
         source={creating}

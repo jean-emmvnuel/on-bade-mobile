@@ -1,7 +1,9 @@
 import * as Clipboard from 'expo-clipboard';
-import { Ban, Flag, Link2, Trash2 } from '@/components/icons';
+import * as Sharing from 'expo-sharing';
+import { Directory, File, Paths } from 'expo-file-system';
+import { Ban, Download, Flag, Link2, Trash2 } from '@/components/icons';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Linking, Platform, View } from 'react-native';
 
 import { useStore } from '@/data/store';
 import { errorMessage } from '@/lib/api';
@@ -16,7 +18,23 @@ import { useToast } from './Toast';
 
 const REASONS = ['Haine', 'Harcèlement', 'Contenu choquant', 'Spam', 'Usurpation', 'Autre'];
 
-/** "…" menu for a bading: copy link, report (with reason), delete own (with confirmation). */
+/**
+ * « Télécharger l'image » (comme sur le site) : l'image est copiée sur le téléphone puis la feuille de partage du système
+ * s'ouvre, avec « Enregistrer l'image » (iPhone) ou « Enregistrer dans Photos / Fichiers » (Android). Web : elle s'ouvre dans un onglet.
+ */
+async function downloadImage(b: Bading) {
+  const src = b.image?.uri;
+  if (!src) return;
+  if (Platform.OS === 'web' || !(await Sharing.isAvailableAsync())) { await Linking.openURL(src); return; }
+  const dir = new Directory(Paths.cache, 'images');
+  if (!dir.exists) dir.create();
+  const file = new File(dir, `onbade-${b.id}.jpg`);
+  if (file.exists) file.delete();
+  const saved = await File.downloadFileAsync(src, file);
+  await Sharing.shareAsync(saved.uri, { mimeType: 'image/jpeg', UTI: 'public.jpeg', dialogTitle: "Télécharger l'image" });
+}
+
+/** "…" menu for a bading: copy link, download its image, report (with reason), delete own (with confirmation). */
 export function useBadingActions() {
   const { session, remove, block, report, users } = useStore();
   const toast = useToast();
@@ -50,6 +68,7 @@ export function useBadingActions() {
       {view === 'menu' && (
         <View>
           <SheetItem icon={<Link2 size={22} color={colors.text} />} label="Copier le lien" onPress={async () => { await Clipboard.setStringAsync(badingLink(target?.id ?? '').share).catch(() => {}); close(); toast('Lien copié'); }} />
+          {target?.image && <SheetItem icon={<Download size={22} color={colors.text} />} label="Télécharger l'image" onPress={() => { const t = target; close(); if (t) downloadImage(t).catch(() => toast("L'image n'a pas pu être téléchargée. Réessaie.")); }} />}
           {mine ? (
             <SheetItem icon={<Trash2 size={22} color={colors.danger} />} label="Supprimer" danger onPress={() => setView('delete')} />
           ) : (
@@ -78,7 +97,7 @@ export function useBadingActions() {
       )}
       {view === 'delete' && (
         <View style={{ paddingHorizontal: space.xl, gap: space.lg }}>
-          <AppText variant="body" color={colors.text2}>Il disparaît du fil et de ton profil. Les rebades afficheront « Ce bading n'est plus disponible ». C'est définitif.</AppText>
+          <AppText variant="body" color={colors.text2}>Il disparaît du fil et de ton profil, avec toutes ses rebades. C'est définitif.</AppText>
           <View style={{ flexDirection: 'row', gap: space.md }}>
             <Button label="Annuler" kind="secondary" size="md" style={{ flex: 1 }} onPress={close} />
             <Button label="Supprimer" size="md" loading={busy} style={{ flex: 1, backgroundColor: colors.danger }} onPress={() => { if (target) run(() => remove(target.id), 'Bading supprimé'); }} />

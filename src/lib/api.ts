@@ -211,7 +211,9 @@ export const deleteBading = (badingId: string) => del(`/badings/${id(badingId)}`
 export const reportBading = (badingId: string, reason: string) => post(`/badings/${id(badingId)}/report`, { reason });
 
 // Commentaires
-export const createComment = (badingId: string, b: { text: string; stickerId: string | null; parentId: string | null }) => post(`/badings/${id(badingId)}/comments`, b);
+export const createComment = (badingId: string, b: { text: string; stickerId: string | null; parentId: string | null; audio?: { dataUrl: string; durationMs: number; waveform: number[] } }) => post(`/badings/${id(badingId)}/comments`, b);
+/** Réglages publics de la plateforme (règles chiffrées, dont la durée maximale des vocaux). */
+export const getPlatform = () => get('/platform');
 export const deleteComment = (commentId: string) => del(`/comments/${id(commentId)}`);
 export const toggleCommentLike = (commentId: string) => post<{ likes: number; likedByMe: boolean }>(`/comments/${id(commentId)}/like`);
 export const reportComment = (commentId: string, reason: string) => post(`/comments/${id(commentId)}/report`, { reason });
