@@ -57,12 +57,12 @@ export function VoiceNote({ audio }: { audio: VoiceClip }) {
       </Pressable>
       <Pressable onPress={(e) => seek(e.nativeEvent.locationX)} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
         accessibilityRole="adjustable" accessibilityLabel="Position dans la note vocale"
-        style={{ flex: 1, height: 30, flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+        style={{ flex: 1, minWidth: 0, height: 30, flexDirection: 'row', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
         {bars.map((h, i) => (
-          <View key={i} style={{ flex: 1, maxWidth: 4, height: `${Math.max(8, h)}%`, borderRadius: 2, backgroundColor: i / bars.length < progress ? colors.brandInk : colors.text3, opacity: i / bars.length < progress ? 1 : 0.6 }} />
+          <View key={i} style={{ flex: 1, minWidth: 0, maxWidth: 4, height: `${Math.max(8, h)}%`, borderRadius: 2, backgroundColor: i / bars.length < progress ? colors.brandInk : colors.text3, opacity: i / bars.length < progress ? 1 : 0.6 }} />
         ))}
       </Pressable>
-      <AppText variant="small" color={colors.text2} style={{ minWidth: 30, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{clock(remaining)}</AppText>
+      <AppText variant="small" color={colors.text2} style={{ minWidth: 34, paddingLeft: 4, textAlign: 'right', fontVariant: ['tabular-nums'], flexShrink: 0 }}>{clock(remaining)}</AppText>
       <Pressable onPress={nextSpeed} accessibilityRole="button" accessibilityLabel={`Vitesse de lecture : ×${speed}`} hitSlop={6}
         style={{ minWidth: 36, height: 26, paddingHorizontal: 6, borderRadius: radius.pill, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
         <AppText variant="small" color={colors.text2} style={{ fontWeight: '700' }}>×{String(speed).replace('.', ',')}</AppText>
