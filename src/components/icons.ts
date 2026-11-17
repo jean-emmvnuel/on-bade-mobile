@@ -1,0 +1,51 @@
+/**
+ * Icons imported one file at a time: importing from the package root pulls in
+ * ~1 700 icon modules and makes the bundle (and Metro) far slower.
+ */
+export { default as ArrowLeft } from 'lucide-react-native/icons/arrow-left';
+export { default as AtSign } from 'lucide-react-native/icons/at-sign';
+export { default as BadgeCheck } from 'lucide-react-native/icons/badge-check';
+export { default as Bell } from 'lucide-react-native/icons/bell';
+export { default as Check } from 'lucide-react-native/icons/check';
+export { default as ChevronRight } from 'lucide-react-native/icons/chevron-right';
+export { default as CircleCheck } from 'lucide-react-native/icons/circle-check';
+export { default as CircleX } from 'lucide-react-native/icons/circle-x';
+export { default as Ellipsis } from 'lucide-react-native/icons/ellipsis';
+export { default as Flag } from 'lucide-react-native/icons/flag';
+export { default as House } from 'lucide-react-native/icons/house';
+export { default as Laugh } from 'lucide-react-native/icons/face-grinning';
+export { default as Link2 } from 'lucide-react-native/icons/link-2';
+export { default as Lock } from 'lucide-react-native/icons/lock';
+export { default as LogOut } from 'lucide-react-native/icons/log-out';
+export { default as MessageSquareQuote } from 'lucide-react-native/icons/message-square-quote';
+export { default as PenLine } from 'lucide-react-native/icons/pen-line';
+export { default as Pencil } from 'lucide-react-native/icons/pencil';
+export { default as Plus } from 'lucide-react-native/icons/plus';
+export { default as Repeat2 } from 'lucide-react-native/icons/repeat-2';
+export { default as Settings } from 'lucide-react-native/icons/settings';
+export { default as Share2 } from 'lucide-react-native/icons/share-2';
+export { default as Shuffle } from 'lucide-react-native/icons/shuffle';
+export { default as Trash2 } from 'lucide-react-native/icons/trash';
+export { default as UserRound } from 'lucide-react-native/icons/user-round';
+export { default as UserX } from 'lucide-react-native/icons/user-x';
+export { default as VenetianMask } from 'lucide-react-native/icons/venetian-mask';
+export { default as X } from 'lucide-react-native/icons/x';
+export { default as Bookmark } from 'lucide-react-native/icons/bookmark';
+export { default as BookmarkCheck } from 'lucide-react-native/icons/bookmark-check';
+export { default as MessageCircle } from 'lucide-react-native/icons/message-circle';
+export { default as ImageIcon } from 'lucide-react-native/icons/image';
+export { default as Share } from 'lucide-react-native/icons/share';
+export { default as IdCard } from 'lucide-react-native/icons/id-card';
+export { default as Ban } from 'lucide-react-native/icons/ban';
+export { default as UserRoundPen } from 'lucide-react-native/icons/user-round-pen';
+export { default as Copy } from 'lucide-react-native/icons/copy';
+export { default as Eye } from 'lucide-react-native/icons/eye';
+export { default as EyeOff } from 'lucide-react-native/icons/eye-off';
+export { default as ZoomIn } from 'lucide-react-native/icons/zoom-in';
+export { default as ZoomOut } from 'lucide-react-native/icons/zoom-out';
+export { default as RotateCw } from 'lucide-react-native/icons/rotate-cw';
+export { default as Crop } from 'lucide-react-native/icons/crop';
+export { default as StickerIcon } from 'lucide-react-native/icons/sticker';
+export { default as BookmarkPlus } from 'lucide-react-native/icons/bookmark-plus';
+export { default as Trophy } from 'lucide-react-native/icons/trophy';
+export { default as Crown } from 'lucide-react-native/icons/crown';

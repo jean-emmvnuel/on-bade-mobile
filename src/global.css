@@ -1,0 +1,4 @@
+::selection { background: #9810e6; color: #fff; }
+html, body { background: #1a1919; }
+* { scrollbar-width: thin; scrollbar-color: #333131 transparent; caret-color: #B76BFF; }
+input, textarea { outline: none; }
