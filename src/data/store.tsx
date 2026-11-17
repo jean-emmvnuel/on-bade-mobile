@@ -18,42 +18,23 @@ import { startBadingActivity } from '@/lib/liveActivity';
 import { notifyLocal, registerForPush, type PushStatus } from '@/lib/notifications';
 
 import type { AppNotification, Bading, BadingImage, Comment, CustomSticker, MentionPolicy, User, VoiceRecording } from './types';
+import { BANNED, MAX_MY_STICKERS, RULES, countMentions, validateBading, type PublishError } from './rules';
+import { buildTree, descendantIds, groupThreads, type CommentNode } from './comments';
+import { momentOf, withPinsFirst, type Pin } from './feed';
+import { uid } from './format';
+
+// Modules extraits, réexportés ici : les écrans continuent d'importer depuis « @/data/store ».
+export * from './rules';
+export * from './comments';
+export * from './feed';
+export * from './format';
 
 export { USE_BACKEND };
 
-export const RULES = {
-  minLength: 10,
-  maxLength: 1000,
-  /** Légende d'un bading avec image : courte, pour garder un fil uniforme. */
-  captionMax: 280,
-  opinionMax: 280,
-  commentMax: 500,
-  maxMentions: 5,
-  /** Certification : actif (un bading signé ces 30 derniers jours) + 1 000 rires reçus sur ses badings signés. */
-  badge: { activeDays: 30, minLaughs: 1000 },
-} as const;
-
-/** Identifiant unique, même pour deux actions dans la même milliseconde. */
-let seq = 0;
-export const uid = (prefix: string) => `${prefix}${Date.now().toString(36)}${(seq++).toString(36)}`;
-
-/** Minimal banned-word filter (RG4). The real list lives server-side. */
-const BANNED = ['connard', 'pute', 'nègre', 'tuer'];
-
-export type PublishError = 'too_short' | 'too_long' | 'caption_too_long' | 'blocked_word' | 'too_many_mentions';
 const PUBLISH_ERRORS: PublishError[] = ['too_short', 'too_long', 'caption_too_long', 'blocked_word', 'too_many_mentions'];
 
 type Session = { email: string; user: User } | null;
 export type Draft = { text: string; anonymous: boolean; image?: BadingImage | null };
-/** F8 : très grande collection de stickers (1 000 maximum). */
-export const MAX_MY_STICKERS = 1000;
-
-/** F0 : mot de passe d'au moins 8 caractères, avec des lettres et des chiffres. */
-export function passwordProblem(pw: string): string | null {
-  if (pw.length < 8) return 'Au moins 8 caractères.';
-  if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return 'Mélange des lettres et des chiffres.';
-  return null;
-}
 
 /** Mode démo uniquement : empreinte non cryptographique pour ne pas garder le mot de passe en clair en mémoire. */
 function fingerprint(email: string, pw: string) {
@@ -70,11 +51,6 @@ export type VerifyResult = 'ok' | 'invalid' | 'expired';
 
 type BadgeRequest = { status: 'none' | 'pending' | 'accepted' | 'refused'; reason?: string; decidedAt?: number; links?: string[] };
 
-/** F7 RG5: a new request is allowed 30 days after a refusal. */
-export const BADGE_RETRY_DAYS = 30;
-
-/** Account deletion is processed 30 days after the request (cancellable until then). */
-export const DELETION_DELAY_DAYS = 30;
 export type DeletionRequest = { status: 'none' | 'pending'; requestedAt?: number; reason?: string };
 
 // Clés du petit stockage persistant (trousseau du téléphone).
@@ -192,109 +168,6 @@ type Store = {
 };
 
 const Ctx = createContext<Store | null>(null);
-
-export function countMentions(text: string) {
-  return (text.match(/@[\w.]+/g) ?? []).length;
-}
-
-/** Identifiants des réponses à `id`, à toutes les profondeurs (le fil de commentaires est un arbre). */
-export function descendantIds(list: Comment[], id: string) {
-  const out = new Set<string>();
-  let frontier = [id];
-  while (frontier.length) {
-    const next = list.filter((c) => c.parentId && frontier.includes(c.parentId) && !out.has(c.id)).map((c) => c.id);
-    next.forEach((x) => out.add(x));
-    frontier = next;
-  }
-  return out;
-}
-
-/**
- * Commentaires d'un bading regroupés pour l'affichage : chaque commentaire racine, puis toutes ses réponses
- * (réponses aux réponses comprises) dans l'ordre chronologique ; « en réponse à @x » dit à qui chacune répond.
- * Une réponse dont un commentaire au-dessus est masqué (supprimé, auteur bloqué, pas chargé) est masquée aussi.
- */
-export type CommentNode = { comment: Comment; children: CommentNode[] };
-
-/** Niveaux de réponses imbriquées (comme le site) : au-delà, les réponses se rangent au dernier niveau, « en réponse à @… ». */
-export const MAX_REPLY_DEPTH = 4;
-
-/**
- * Arbre des commentaires d'un bading : racines (les plus ris d'abord), puis chaque réponse sous son commentaire,
- * du plus ancien au plus récent, sur MAX_REPLY_DEPTH niveaux. Une réponse dont le parent est masqué disparaît avec lui.
- */
-export function buildTree(list: Comment[], hidden: (c: Comment) => boolean): CommentNode[] {
-  const visible = list.filter((c) => !hidden(c));
-  const byParent = new Map<string, Comment[]>();
-  visible.forEach((c) => { if (c.parentId) byParent.set(c.parentId, [...(byParent.get(c.parentId) ?? []), c]); });
-  const byDate = (a: Comment, b: Comment) => a.createdAt - b.createdAt;
-  const descendants = (id: string): Comment[] => (byParent.get(id) ?? []).flatMap((c) => [c, ...descendants(c.id)]);
-  const build = (c: Comment, depth: number): CommentNode => ({
-    comment: c,
-    // Dernier niveau : toutes les réponses plus profondes à plat, à côté.
-    children: depth >= MAX_REPLY_DEPTH ? [] : depth === MAX_REPLY_DEPTH - 1
-      ? descendants(c.id).sort(byDate).map((d) => ({ comment: d, children: [] }))
-      : (byParent.get(c.id) ?? []).sort(byDate).map((d) => build(d, depth + 1)),
-  });
-  return visible
-    .filter((c) => c.parentId === null)
-    .sort((a, b) => b.likes - a.likes || a.createdAt - b.createdAt)
-    .map((c) => build(c, 0));
-}
-
-export function groupThreads(list: Comment[], hidden: (c: Comment) => boolean) {
-  const byId = new Map(list.map((c) => [c.id, c]));
-  const rootOf = (c: Comment): string | null => {
-    const seen = new Set<string>();
-    let cur = c;
-    while (cur.parentId) {
-      const up = byId.get(cur.parentId);
-      if (!up || hidden(up) || seen.has(up.id)) return null;
-      seen.add(up.id);
-      cur = up;
-    }
-    return cur.id;
-  };
-  const visible = list.filter((c) => !hidden(c));
-  const replies = new Map<string, Comment[]>();
-  visible.forEach((c) => {
-    if (c.parentId === null) return;
-    const root = rootOf(c);
-    if (root) replies.set(root, [...(replies.get(root) ?? []), c]);
-  });
-  return visible
-    .filter((c) => c.parentId === null)
-    .sort((a, b) => b.likes - a.likes || a.createdAt - b.createdAt)
-    .map((root) => ({ root, replies: (replies.get(root.id) ?? []).sort((a, b) => a.createdAt - b.createdAt) }));
-}
-
-/** Badings du moment (comme sur le site) : les plus drôles du fil, classés par rires, hors rebades ; le plus récent d'abord à égalité. */
-/** Épinglé par l'équipe ; `label` : étiquette facultative (« Bading du jour »). */
-export type Pin = { id: string; label?: string };
-
-/** Le fil avec les badings épinglés tout en haut (dans l'ordre des épingles), puis les autres du plus récent au plus ancien. */
-export function withPinsFirst(feed: Bading[], pins: Pin[]) {
-  if (!pins.length) return feed;
-  const rank = new Map(pins.map((p, i) => [p.id, i]));
-  const top = feed.filter((b) => rank.has(b.id)).sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
-  return [...top, ...feed.filter((b) => !rank.has(b.id))];
-}
-
-export function momentOf(feed: Bading[], limit = 20) {
-  return feed.filter((b) => !b.rebadeOf).sort((a, b) => (b.likes - a.likes) || (b.createdAt - a.createdAt)).slice(0, limit);
-}
-
-/** Pas de limite de badings par jour. */
-export function validateBading(text: string, hasImage = false): PublishError | null {
-  const t = text.trim();
-  // F1 RG1 : avec une image, le texte devient une légende facultative.
-  if (!hasImage && t.length < RULES.minLength) return 'too_short';
-  if (t.length > (hasImage ? RULES.captionMax : RULES.maxLength)) return hasImage ? 'caption_too_long' : 'too_long';
-  if (countMentions(t) > RULES.maxMentions) return 'too_many_mentions';
-  const lower = t.toLowerCase();
-  if (BANNED.some((w) => lower.includes(w))) return 'blocked_word';
-  return null;
-}
 
 /** Relance l'erreur du serveur avec un code compris par les écrans. */
 function withCode(error: unknown, renames: Record<string, string>, byStatus: Record<number, string>): never {
@@ -1152,24 +1025,3 @@ export function useStore() {
   return s;
 }
 
-export function displayName(b: Bading, users: Record<string, User>) {
-  if (b.anonymous) return { name: 'Badeur anonyme', handle: null, user: null };
-  const u = users[b.authorId];
-  return { name: u?.pseudo ?? 'Badeur', handle: u ? `@${u.pseudo}` : null, user: u ?? null };
-}
-
-export function timeAgo(ts: number) {
-  const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
-  if (s < 60) return `${s} s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m} min`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} h`;
-  return `${Math.floor(h / 24)} j`;
-}
-
-export function compact(n: number) {
-  if (n < 1000) return String(n);
-  if (n < 10_000) return `${(n / 1000).toFixed(1).replace('.0', '')} k`;
-  return `${Math.round(n / 1000)} k`;
-}
