@@ -5,6 +5,7 @@ import Animated, { FadeInDown, useAnimatedScrollHandler, useReducedMotion, useSh
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
+import { NotificationBell } from '@/components/NotificationBell';
 import { BadingCard } from '@/components/BadingCard';
 import { useBadingActions } from '@/components/BadingActions';
 import { Button } from '@/components/Button';
@@ -113,7 +114,8 @@ export default function Moment() {
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top, backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.line }}>
         <View style={{ height: HEADER, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: space.lg }}>
           <Flame size={22} color={colors.brandInk} strokeWidth={2.2} />
-          <AppText variant="heading" style={{ fontSize: 22 }} accessibilityRole="header">Badings du moment</AppText>
+          <AppText variant="heading" style={{ fontSize: 22, flex: 1 }} accessibilityRole="header">Badings du moment</AppText>
+          <NotificationBell />
         </View>
       </View>
       {sheet}

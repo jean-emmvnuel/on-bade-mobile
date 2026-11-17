@@ -47,7 +47,7 @@ export default function Notifications() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* Ouvert depuis la cloche en haut à droite du fil : titre avec bouton retour */}
-      <ScreenHeader title="Notifications" />
+      <ScreenHeader title="Notifications" bell={false} />
       <FlatList
         data={notifications}
         keyExtractor={(n) => n.id}

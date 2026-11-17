@@ -6,6 +6,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Avatar } from '@/components/Avatar';
 import { BadingCard } from '@/components/BadingCard';
 import { useBadingActions } from '@/components/BadingActions';
@@ -83,11 +84,14 @@ export default function Profile() {
         contentContainerStyle={{ paddingBottom: 24 }}
         ListHeaderComponent={
           <View style={{ paddingTop: insets.top }}>
-            <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: space.lg, paddingRight: space.sm }}>
+            <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.lg }}>
               <AppText variant="heading" style={{ fontSize: 22 }} accessibilityRole="header">Profil</AppText>
-              <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Paramètres" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-                <Settings size={22} color={colors.text} />
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Paramètres" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                  <Settings size={22} color={colors.text} />
+                </Pressable>
+                <NotificationBell />
+              </View>
             </View>
             {/* Carte d'identité : sobre, centrée, dans la même forme arrondie que les badings */}
             <Animated.View entering={FadeIn.duration(300)} style={{ marginHorizontal: space.md, marginTop: space.sm, marginBottom: space.lg, paddingTop: space.xl, paddingBottom: space.lg, paddingHorizontal: space.lg, alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 28 }}>

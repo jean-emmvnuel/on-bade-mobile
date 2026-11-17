@@ -8,10 +8,11 @@ import { PressableScale } from '@/components/PressableScale';
 import { useStore } from '@/data/store';
 import { colors } from '@/theme/tokens';
 
-/** Cloche des notifications, en haut à droite du fil, avec le nombre de non lues (« 99+ » au-delà). */
+/** Cloche des notifications, en haut à droite de chaque écran, avec le nombre de non lues (« 99+ » au-delà). Rien sans compte. */
 export function NotificationBell() {
-  const { notifications } = useStore();
+  const { notifications, session } = useStore();
   const unread = notifications.filter((n) => !n.read).length;
+  if (!session) return null;
   return (
     <PressableScale
       onPress={() => { tap(); router.push('/notifications'); }}

@@ -6,6 +6,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Button } from '@/components/Button';
 import { success } from '@/components/haptics';
 import { useToast } from '@/components/Toast';
@@ -37,6 +38,8 @@ export default function Classement() {
           <View style={{ paddingHorizontal: 10, height: 24, borderRadius: radius.pill, backgroundColor: colors.surface2, justifyContent: 'center' }}>
             <AppText variant="small" color={colors.text2} style={{ fontFamily: fonts.bodyBold }}>Bientôt</AppText>
           </View>
+          <View style={{ flex: 1 }} />
+          <NotificationBell />
         </View>
       </View>
 
