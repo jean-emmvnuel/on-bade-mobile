@@ -77,7 +77,7 @@ export default function Verify() {
       step={2}
       total={3}
       title="Vérifie ton e-mail"
-      subtitle={`On a envoyé un code à 6 chiffres à ${signupEmail}. Il est valable 10 minutes. Pense à regarder dans les spams.`}
+      subtitle={`On a envoyé un code à 6 chiffres à ${signupEmail}. Il est valable 10 minutes. Pense à regarder dans les spams. Si cette adresse a déjà un compte, tu reçois à la place un e-mail pour te connecter.`}
       footer={<Button label="Valider" onPress={() => check()} loading={loading} disabled={code.length !== 6} />}>
       <Field
         label="Code reçu par e-mail"

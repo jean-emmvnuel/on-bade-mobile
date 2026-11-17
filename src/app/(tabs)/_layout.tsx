@@ -1,6 +1,6 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { Redirect, router, Tabs } from 'expo-router';
-import { Bell, House, Flame, Plus, UserRound } from '@/components/icons';
+import { Flame, House, Plus, Trophy, UserRound } from '@/components/icons';
 import { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,10 +12,9 @@ import { useStore } from '@/data/store';
 import { listenToIncomingNotifications } from '@/lib/notifications';
 import { colors, radius } from '@/theme/tokens';
 
+// Les notifications ne sont plus un onglet : cloche en haut à droite du fil (NotificationBell).
 function TabBar({ state, navigateToTab }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { notifications } = useStore();
-  const unread = notifications.filter((n) => !n.read).length;
   const current = state.routes[state.index]?.name;
 
   const Item = ({ name, label, Icon, badge = 0 }: { name: string; label: string; Icon: typeof House; badge?: number }) => {
@@ -43,7 +42,7 @@ function TabBar({ state, navigateToTab }: BottomTabBarProps) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.line, paddingBottom: Math.max(insets.bottom, 8), paddingTop: 6, paddingHorizontal: 6 }}>
       <Item name="index" label="Fil" Icon={House} />
-      <Item name="notifications" label="Notifs" Icon={Bell} badge={unread} />
+      <Item name="moment" label="Du moment" Icon={Flame} />
       <View style={{ flex: 1.3, alignItems: 'center' }}>
         <PressableScale
           scaleTo={0.92}
@@ -55,7 +54,7 @@ function TabBar({ state, navigateToTab }: BottomTabBarProps) {
           <AppText variant="label" color={colors.onBrand}>Bader</AppText>
         </PressableScale>
       </View>
-      <Item name="moment" label="Du moment" Icon={Flame} />
+      <Item name="classement" label="Classement" Icon={Trophy} />
       <Item name="profile" label="Profil" Icon={UserRound} />
     </View>
   );
@@ -85,8 +84,8 @@ export default function TabsLayout() {
   return (
     <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.bg }, animation: 'fade' }}>
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="notifications" />
       <Tabs.Screen name="moment" />
+      <Tabs.Screen name="classement" />
       <Tabs.Screen name="profile" />
     </Tabs>
   );

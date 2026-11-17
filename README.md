@@ -28,7 +28,7 @@ L'app parle à l'API On Bade en production (`https://backend-onbade.oriverse-it.
 
 | Dossier | Rôle |
 |---|---|
-| `src/app/` | écrans Expo Router : `onboarding`, `(auth)/signup·verify·pseudo`, `(tabs)/index·notifications·moment·profile`, `compose`, `bading/[id]`, `rebade/[id]`, `b/[id]` (liens partagés), `notifications`, `settings`, `privacy` |
+| `src/app/` | écrans Expo Router : `onboarding`, `(auth)/signup·verify·pseudo`, `(tabs)/index·moment·classement·profile`, `compose`, `bading/[id]`, `rebade/[id]`, `b/[id]` (liens partagés), `notifications`, `settings`, `privacy` |
 | `src/components/` | UI : `BadingCard`, `Comments`, `ShareSheet`, `PullToRefresh`, `LaughButton` + `Confetti`, `AnimatedSplash`, `AvatarPicker`, `Sheet`… |
 | `src/data/` | `store.tsx` (état + règles V1), `seed.ts` (données simulées), `types.ts` |
 | `src/lib/` | `links.ts` (liens dynamiques), `notifications.ts` (push), `liveActivity.ts` (Dynamic Island) |

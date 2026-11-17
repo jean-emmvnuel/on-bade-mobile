@@ -17,6 +17,7 @@ import { BadingCard } from '@/components/BadingCard';
 import { useBadingActions } from '@/components/BadingActions';
 import { Button } from '@/components/Button';
 import { LogoMark } from '@/components/Logo';
+import { NotificationBell } from '@/components/NotificationBell';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { useToast } from '@/components/Toast';
 import { useStore, withPinsFirst } from '@/data/store';
@@ -158,6 +159,7 @@ export default function Feed() {
             <LogoMark size={28} />
             <AppText variant="heading" style={{ fontSize: 22 }} accessibilityRole="header">On Bade</AppText>
           </View>
+          <NotificationBell />
         </Animated.View>
       </Animated.View>
       {sheet}

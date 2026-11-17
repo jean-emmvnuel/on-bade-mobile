@@ -2,18 +2,17 @@ import { router, useFocusEffect } from 'expo-router';
 import { AtSign, BadgeCheck, Laugh, MessageCircle, Repeat2 } from '@/components/icons';
 import { useCallback } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
 import { Avatar } from '@/components/Avatar';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { timeAgo, useStore } from '@/data/store';
 import type { AppNotification } from '@/data/types';
 import { colors, space } from '@/theme/tokens';
 
 export default function Notifications() {
   const { notifications, users, getBading, markAllRead, loadNotifications, badge } = useStore();
-  const insets = useSafeAreaInsets();
   // À chaque ouverture de l'onglet : liste à jour, puis tout passe en « lu » peu après.
   useFocusEffect(
     useCallback(() => {
@@ -47,12 +46,8 @@ export default function Notifications() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      {/* Onglet de la barre du bas : un titre simple, sans bouton retour */}
-      <View style={{ paddingTop: insets.top, borderBottomWidth: 1, borderBottomColor: colors.line }}>
-        <View style={{ height: 56, justifyContent: 'center', paddingHorizontal: space.lg }}>
-          <AppText variant="heading" style={{ fontSize: 22 }} accessibilityRole="header">Notifications</AppText>
-        </View>
-      </View>
+      {/* Ouvert depuis la cloche en haut à droite du fil : titre avec bouton retour */}
+      <ScreenHeader title="Notifications" />
       <FlatList
         data={notifications}
         keyExtractor={(n) => n.id}

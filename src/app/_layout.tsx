@@ -61,6 +61,7 @@ export default function RootLayout() {
                 <Stack.Screen name="compose" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
                 <Stack.Screen name="rebade/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
                 <Stack.Screen name="bading/[id]" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="privacy" options={{ animation: 'slide_from_right' }} />
               </Stack>
