@@ -15,18 +15,18 @@ async function setup() {
 
 describe('Règles de publication (F1)', () => {
   it('texte de 10 à 1 000 caractères sans image', () => {
-    expect(validateBading('Court', 0)).toBe('too_short');
-    expect(validateBading('a'.repeat(10), 0)).toBeNull();
-    expect(validateBading('a'.repeat(1001), 0)).toBe('too_long');
+    expect(validateBading('Court')).toBe('too_short');
+    expect(validateBading('a'.repeat(10))).toBeNull();
+    expect(validateBading('a'.repeat(1001))).toBe('too_long');
   });
   it('avec une image : texte facultatif, légende de 280 caractères max.', () => {
-    expect(validateBading('', 0, true)).toBeNull();
-    expect(validateBading('a'.repeat(281), 0, true)).toBe('caption_too_long');
+    expect(validateBading('', true)).toBeNull();
+    expect(validateBading('a'.repeat(281), true)).toBe('caption_too_long');
   });
-  it('mots interdits, 5 mentions, 20 badings par jour', () => {
-    expect(validateBading('Quel connard ce chauffeur', 0)).toBe('blocked_word');
-    expect(validateBading('@a @b @c @d @e @f trop de monde', 0)).toBe('too_many_mentions');
-    expect(validateBading('Une histoire assez longue', RULES.dailyLimit)).toBe('daily_limit');
+  it('mots interdits, 5 mentions, et aucune limite par jour', () => {
+    for (let i = 0; i < 30; i++) expect(validateBading('Une histoire assez longue')).toBeNull();
+    expect(validateBading('Quel connard ce chauffeur')).toBe('blocked_word');
+    expect(validateBading('@a @b @c @d @e @f trop de monde')).toBe('too_many_mentions');
   });
 });
 
@@ -75,7 +75,6 @@ describe('Publier, rire, voir, partager', () => {
     await act(async () => { const r = await result.current.publish('  Le gbaka m’a oublié à Adjamé  ', false); if (r.ok) id = r.id; });
     expect(result.current.feed[0]).toMatchObject({ id, text: 'Le gbaka m’a oublié à Adjamé', likes: 0, views: 0, authorId: ME_ID });
     expect(result.current.draft).toEqual({ text: '', anonymous: false, image: null });
-    expect(result.current.postedToday).toBe(1);
   });
   it('deux badings publiés dans la même milliseconde ont des identifiants différents', async () => {
     const { result } = await setup();

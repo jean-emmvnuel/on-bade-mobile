@@ -24,7 +24,6 @@ const ERRORS: Record<PublishError, string> = {
   too_short: `Encore un peu : un bading fait au moins ${RULES.minLength} caractères.`,
   too_long: `Trop long : ${RULES.maxLength} caractères maximum.`,
   caption_too_long: `Avec une image, la légende fait ${RULES.captionMax} caractères maximum.`,
-  daily_limit: `Tu as atteint ${RULES.dailyLimit} badings aujourd'hui. Reviens demain !`,
   blocked_word: 'Un mot de ton bading n’est pas accepté par la charte. Reformule-le.',
   too_many_mentions: `${RULES.maxMentions} mentions maximum par bading.`,
 };
@@ -32,7 +31,7 @@ const ERRORS: Record<PublishError, string> = {
 export default function Compose() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const { session, draft, setDraft, publish, postedToday, searchPseudos, simulateEngagement } = useStore();
+  const { session, draft, setDraft, publish, searchPseudos, simulateEngagement } = useStore();
   const [text, setText] = useState(draft.text);
   const [anonymous, setAnonymous] = useState(draft.anonymous);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +56,6 @@ export default function Compose() {
 
   const me = session?.user ?? null;
   const len = text.trim().length;
-  const remaining = RULES.dailyLimit - postedToday;
   const max = image ? RULES.captionMax : RULES.maxLength;
   const tooLong = len > max;
   const canPublish = image ? !tooLong : len >= RULES.minLength && !tooLong;
@@ -196,9 +194,7 @@ export default function Compose() {
           <Toggle value={anonymous} onChange={setAnonymous} label="Publier en anonyme" />
         </View>
         <View style={{ paddingTop: 4 }}>
-          <AppText variant="small" color={remaining <= 5 ? colors.brandInk : colors.text3}>
-            {remaining <= 5 ? `Encore ${Math.max(0, remaining)} bading${remaining > 1 ? 's' : ''} aujourd'hui` : 'Tape @ pour mentionner quelqu’un'}
-          </AppText>
+          <AppText variant="small" color={colors.text3}>Tape @ pour mentionner quelqu’un</AppText>
         </View>
       </Animated.View>
       <ImageCropper

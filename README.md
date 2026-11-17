@@ -28,7 +28,7 @@ L'app parle à l'API On Bade en production (`https://backend-onbade.oriverse-it.
 
 | Dossier | Rôle |
 |---|---|
-| `src/app/` | écrans Expo Router : `onboarding`, `(auth)/signup·verify·pseudo`, `(tabs)/index·profile`, `compose`, `bading/[id]`, `rebade/[id]`, `b/[id]` (liens partagés), `notifications`, `settings`, `privacy` |
+| `src/app/` | écrans Expo Router : `onboarding`, `(auth)/signup·verify·pseudo`, `(tabs)/index·notifications·moment·profile`, `compose`, `bading/[id]`, `rebade/[id]`, `b/[id]` (liens partagés), `notifications`, `settings`, `privacy` |
 | `src/components/` | UI : `BadingCard`, `Comments`, `ShareSheet`, `PullToRefresh`, `LaughButton` + `Confetti`, `AnimatedSplash`, `AvatarPicker`, `Sheet`… |
 | `src/data/` | `store.tsx` (état + règles V1), `seed.ts` (données simulées), `types.ts` |
 | `src/lib/` | `links.ts` (liens dynamiques), `notifications.ts` (push), `liveActivity.ts` (Dynamic Island) |
@@ -59,4 +59,4 @@ npm run test:watch
 | `__tests__/myDataPdf.test.ts` | PDF « copie de mes données » : statistiques, contenu, échappement du HTML, création et partage |
 | `__tests__/stickers.test.ts` | Stickers et cohérence des données de démo |
 | `__tests__/signup.test.tsx` | Inscription avec le backend : code envoyé par e-mail, code faux ou expiré, nouveau code, `emailToken` joint à la création du compte |
-| `__tests__/backend.test.ts` | Client HTTP (réponses, erreurs, réseau), conversion des objets du serveur, fil élagué, règles du pseudo |
+| `__tests__/backend.test.ts` | Client HTTP (réponses, erreurs, réseau), conversion des objets du serveur, fil élagué, règles du pseudo, badings du moment |

@@ -28,7 +28,6 @@ export const RULES = {
   captionMax: 280,
   opinionMax: 280,
   commentMax: 500,
-  dailyLimit: 20,
   maxMentions: 5,
   /** Certification : actif (un bading signé ces 30 derniers jours) + 1 000 rires reçus sur ses badings signés. */
   badge: { activeDays: 30, minLaughs: 1000 },
@@ -41,8 +40,8 @@ export const uid = (prefix: string) => `${prefix}${Date.now().toString(36)}${(se
 /** Minimal banned-word filter (RG4). The real list lives server-side. */
 const BANNED = ['connard', 'pute', 'nègre', 'tuer'];
 
-export type PublishError = 'too_short' | 'too_long' | 'caption_too_long' | 'daily_limit' | 'blocked_word' | 'too_many_mentions';
-const PUBLISH_ERRORS: PublishError[] = ['too_short', 'too_long', 'caption_too_long', 'daily_limit', 'blocked_word', 'too_many_mentions'];
+export type PublishError = 'too_short' | 'too_long' | 'caption_too_long' | 'blocked_word' | 'too_many_mentions';
+const PUBLISH_ERRORS: PublishError[] = ['too_short', 'too_long', 'caption_too_long', 'blocked_word', 'too_many_mentions'];
 
 type Session = { email: string; user: User } | null;
 export type Draft = { text: string; anonymous: boolean; image?: BadingImage | null };
@@ -185,7 +184,6 @@ type Store = {
   /** Bading opened from a shared link before sign-in (Parcours 1). */
   pendingLink: string | null;
   setPendingLink: (id: string | null) => void;
-  postedToday: number;
   searchPseudos: (q: string) => Promise<User[]>;
 };
 
@@ -238,13 +236,18 @@ export function groupThreads(list: Comment[], hidden: (c: Comment) => boolean) {
     .map((root) => ({ root, replies: (replies.get(root.id) ?? []).sort((a, b) => a.createdAt - b.createdAt) }));
 }
 
-export function validateBading(text: string, postedToday: number, hasImage = false): PublishError | null {
+/** Badings du moment (comme sur le site) : les plus drôles du fil, classés par rires, hors rebades ; le plus récent d'abord à égalité. */
+export function momentOf(feed: Bading[], limit = 20) {
+  return feed.filter((b) => !b.rebadeOf).sort((a, b) => (b.likes - a.likes) || (b.createdAt - a.createdAt)).slice(0, limit);
+}
+
+/** Pas de limite de badings par jour. */
+export function validateBading(text: string, hasImage = false): PublishError | null {
   const t = text.trim();
   // F1 RG1 : avec une image, le texte devient une légende facultative.
   if (!hasImage && t.length < RULES.minLength) return 'too_short';
   if (t.length > (hasImage ? RULES.captionMax : RULES.maxLength)) return hasImage ? 'caption_too_long' : 'too_long';
   if (countMentions(t) > RULES.maxMentions) return 'too_many_mentions';
-  if (postedToday >= RULES.dailyLimit) return 'daily_limit';
   const lower = t.toLowerCase();
   if (BANNED.some((w) => lower.includes(w))) return 'blocked_word';
   return null;
@@ -283,7 +286,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [blocked, setBlocked] = useState<string[]>([]);
   const [pendingLink, setPendingLink] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<DeletionRequest>({ status: 'none' });
-  const [postedToday, setPostedToday] = useState(0);
 
   // Valeurs à jour pour les actions asynchrones (évite les closures périmées).
   const live = useRef({ feed, users, comments, favorites, myStickers, mentionPolicy, session, pendingSignup });
@@ -340,7 +342,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const clearContent = useCallback(() => {
     setFeed([]); setComments([]); setNotifications([]); setFavorites([]); setBlocked([]);
     setMyStickers([]); setRecentStickers([]); setCustomStickers({}); setUsers({});
-    setBadge({ status: 'none' }); setDeletion({ status: 'none' }); setMentionPolicyState('everyone'); setPostedToday(0);
+    setBadge({ status: 'none' }); setDeletion({ status: 'none' }); setMentionPolicyState('everyone');
   }, []);
 
   const openSession = useCallback((email: string, response: any) => {
@@ -649,7 +651,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const publish: Store['publish'] = useCallback(
     async (text, anonymous, image) => {
-      const error = validateBading(text, postedToday, !!image);
+      const error = validateBading(text, !!image);
       if (error) return { ok: false, error };
       if (USE_BACKEND) {
         try {
@@ -660,7 +662,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             image: image && dataUrl ? { dataUrl, ratio: image.width / image.height } : null,
           });
           mergeBadings([bading]);
-          setPostedToday((n) => n + 1);
           setDraft({ text: '', anonymous: false, image: null });
           return { ok: true, id: bading.id };
         } catch (e) {
@@ -673,11 +674,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         { id, authorId: ME_ID, anonymous, text: text.trim(), ...(image ? { image } : {}), createdAt: Date.now(), likes: 0, likedByMe: false, rebades: 0, shares: 0, views: 0 },
         ...f,
       ]);
-      setPostedToday((n) => n + 1);
       setDraft({ text: '', anonymous: false, image: null });
       return { ok: true, id };
     },
-    [postedToday, mergeBadings],
+    [mergeBadings],
   );
 
   const rebade: Store['rebade'] = useCallback(async (id, opinion, anonymous) => {
@@ -1023,7 +1023,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       draft,
       mentionPolicy,
       badge,
-      postedToday,
       finishOnboarding,
       startSignup,
       signupEmail: pendingSignup?.email ?? null,
@@ -1089,7 +1088,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPendingLink,
       searchPseudos,
     }),
-    [ready, onboarded, session, users, sortedFeed, notifications, draft, mentionPolicy, badge, postedToday, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, setMentionPolicy, requestBadge, comments, commentsFor, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
+    [ready, onboarded, session, users, sortedFeed, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, setMentionPolicy, requestBadge, comments, commentsFor, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

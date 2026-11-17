@@ -1,6 +1,6 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { Redirect, router, Tabs } from 'expo-router';
-import { Bell, House, Plus, Trophy, UserRound } from '@/components/icons';
+import { Bell, House, Flame, Plus, UserRound } from '@/components/icons';
 import { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,7 +55,7 @@ function TabBar({ state, navigateToTab }: BottomTabBarProps) {
           <AppText variant="label" color={colors.onBrand}>Bader</AppText>
         </PressableScale>
       </View>
-      <Item name="classement" label="Classement" Icon={Trophy} />
+      <Item name="moment" label="Du moment" Icon={Flame} />
       <Item name="profile" label="Profil" Icon={UserRound} />
     </View>
   );
@@ -86,7 +86,7 @@ export default function TabsLayout() {
     <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.bg }, animation: 'fade' }}>
       <Tabs.Screen name="index" />
       <Tabs.Screen name="notifications" />
-      <Tabs.Screen name="classement" />
+      <Tabs.Screen name="moment" />
       <Tabs.Screen name="profile" />
     </Tabs>
   );

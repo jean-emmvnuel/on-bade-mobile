@@ -3,6 +3,7 @@ import { ApiError, errorMessage, request } from '@/lib/api';
 import { PSEUDO_RULES, pseudoFormatError } from '@/lib/pseudo';
 import { fromServerBading, fromServerComment, fromServerSticker, fromServerUser, idMapper, pruneFeed } from '@/data/server';
 import { ME_ID } from '@/data/seed';
+import { momentOf } from '@/data/store';
 import type { Bading } from '@/data/types';
 
 const ids = idMapper('srv-me');
@@ -89,5 +90,16 @@ describe('Fil de commentaires en arbre', () => {
   });
   it('descendants à toutes les profondeurs', () => {
     expect([...descendantIds(list as any, 'B')].sort()).toEqual(['C', 'D']);
+  });
+});
+
+describe('Badings du moment', () => {
+  const b = (id: string, likes: number, createdAt: number, extra: Partial<Bading> = {}) =>
+    ({ id, authorId: 'u', anonymous: false, text: 'x', createdAt, likes, likedByMe: false, rebades: 0, shares: 0, ...extra }) as Bading;
+
+  it('classe par rires, le plus récent d’abord à égalité, sans les rebades', () => {
+    const feed = [b('a', 2, 1), b('b', 9, 1), b('c', 2, 5), b('r', 50, 9, { rebadeOf: 'b' })];
+    expect(momentOf(feed).map((x) => x.id)).toEqual(['b', 'c', 'a']);
+    expect(momentOf(feed, 1).map((x) => x.id)).toEqual(['b']);
   });
 });
