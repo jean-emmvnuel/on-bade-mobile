@@ -2,6 +2,17 @@
 
 Présentation complète du projet : [README du dépôt](https://github.com/jean-emmvnuel/jebade/blob/main/README.md).
 
+## 🧩 Les 4 projets On Bade
+
+| Projet | Dépôt |
+|---|---|
+| Serveur / API | [`growthman7/onbad-backend`](https://github.com/growthman7/onbad-backend) |
+| Site web | [`jean-emmvnuel/on-bad-web`](https://github.com/jean-emmvnuel/on-bad-web) |
+| Back-office | [`jean-emmvnuel/on-bade-admin`](https://github.com/jean-emmvnuel/on-bade-admin) |
+| **App mobile** (ce dépôt) | [`jean-emmvnuel/on-bade-mobile`](https://github.com/jean-emmvnuel/on-bade-mobile) |
+
+📐 Comment ils s'articulent : [ARCHITECTURE.md](https://github.com/growthman7/onbad-backend/blob/main/docs/ARCHITECTURE.md) · 🔌 Toutes les routes de l'API : [API.md](https://github.com/growthman7/onbad-backend/blob/main/docs/API.md) (générée depuis le code du serveur).
+
 ## Démarrer
 
 ```bash
