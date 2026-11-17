@@ -14,7 +14,6 @@ import { tap } from './haptics';
 import { Button } from './Button';
 import { ImageIcon } from './icons';
 import { LogoMark } from './Logo';
-import { PressableScale } from './PressableScale';
 import { Sheet } from './Sheet';
 import { useToast } from './Toast';
 
