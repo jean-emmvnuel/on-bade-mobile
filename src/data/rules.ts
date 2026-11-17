@@ -1,4 +1,5 @@
-// Règles métier de l'app (mêmes valeurs par défaut que le serveur, lib/rules.ts) : longueurs, mots interdits, mot de passe.
+// Règles métier de l'app : valeurs par défaut identiques au serveur (lib/rules.ts), remplacées au démarrage par celles
+// que l'équipe règle dans le back-office (src/lib/platform.ts). Longueurs, mentions, vocaux, mots interdits, mot de passe.
 
 export const RULES = {
   minLength: 10,
@@ -8,9 +9,28 @@ export const RULES = {
   opinionMax: 280,
   commentMax: 500,
   maxMentions: 5,
+  /** Durée maximale d'une note vocale en commentaire (secondes). */
+  voiceMaxSeconds: 60,
   /** Certification : actif (un bading signé ces 30 derniers jours) + 1 000 rires reçus sur ses badings signés. */
   badge: { activeDays: 30, minLaughs: 1000 },
-} as const;
+};
+
+/**
+ * Règles chiffrées réglées par l'équipe dans le back-office (GET /api/platform) : remplacent les valeurs par défaut
+ * ci-dessus, qui restent le repli hors ligne. Une valeur absente ou invalide est ignorée.
+ */
+export function applyRules(rules: unknown) {
+  if (!rules || typeof rules !== 'object') return;
+  const r = rules as Record<string, unknown>;
+  const num = (v: unknown) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : null);
+  for (const k of ['minLength', 'maxLength', 'captionMax', 'opinionMax', 'commentMax', 'maxMentions', 'voiceMaxSeconds'] as const) {
+    const v = num(r[k]);
+    if (v !== null) RULES[k] = v;
+  }
+  const active = num(r.badgeActiveDays), laughs = num(r.badgeMinLaughs);
+  if (active !== null) RULES.badge.activeDays = active;
+  if (laughs !== null) RULES.badge.minLaughs = laughs;
+}
 
 /** Minimal banned-word filter (RG4). The real list lives server-side. */
 export const BANNED = ['connard', 'pute', 'nègre', 'tuer'];

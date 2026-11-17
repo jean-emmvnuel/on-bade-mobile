@@ -6,7 +6,8 @@ import { Platform } from 'react-native';
 import { File } from 'expo-file-system';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, type RecordingOptions } from 'expo-audio';
 
-import { getPlatform } from '@/lib/api';
+import { RULES } from '@/data/rules';
+import { syncRules } from '@/lib/platform';
 import type { VoiceRecording } from '@/data/types';
 
 export const MIN_VOICE_MS = 800;
@@ -74,22 +75,14 @@ export async function toRecording(uri: string, durationMs: number, levels: numbe
   return { dataUrl, durationMs, waveform: barsFromDb(levels) };
 }
 
-// ─── Durée maximale (réglée par l'équipe dans le back-office) ───
+// ─── Durée maximale (réglée par l'équipe dans le back-office, voir src/lib/platform.ts) ───
 
-let maxSeconds = 60;
-let loaded: Promise<number> | null = null;
-/** Durée maximale d'un vocal en secondes (lue une fois auprès du serveur, 60 par défaut). */
-export function voiceMaxSeconds(): Promise<number> {
-  loaded ??= getPlatform()
-    .then((r: { rules?: { voiceMaxSeconds?: number } }) => {
-      const v = Number(r?.rules?.voiceMaxSeconds);
-      if (Number.isFinite(v) && v > 0) maxSeconds = v;
-      return maxSeconds;
-    })
-    .catch(() => maxSeconds);
-  return loaded;
+/** Durée maximale d'un vocal en secondes, une fois les règles du serveur chargées (60 par défaut). */
+export async function voiceMaxSeconds(): Promise<number> {
+  await syncRules();
+  return RULES.voiceMaxSeconds;
 }
-export const currentVoiceMax = () => maxSeconds;
+export const currentVoiceMax = () => RULES.voiceMaxSeconds;
 
 /** « 0:07 », « 1:00 ». */
 export const clock = (ms: number) => {

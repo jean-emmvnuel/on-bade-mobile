@@ -15,6 +15,7 @@ import { ShareProvider } from '@/components/ShareSheet';
 import { ToastProvider } from '@/components/Toast';
 import { StoreProvider } from '@/data/store';
 import { listenToNotificationTaps } from '@/lib/notifications';
+import { syncRules } from '@/lib/platform';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync();
@@ -39,6 +40,8 @@ export default function RootLayout() {
   const [splashDone, setSplashDone] = useState(false);
   // Tapping a notification opens its screen (bading, notifications…).
   useEffect(() => (Platform.OS === 'web' ? undefined : listenToNotificationTaps((url) => router.push(url as never))), []);
+  // Règles réglées par l'équipe (longueurs, durée des vocaux…) : chargées dès l'ouverture de l'app.
+  useEffect(() => { void syncRules(); }, []);
 
   if (!loaded) return null;
   if (__DEV__) console.log('[OnBade] polices chargées, splash:', splashDone ? 'fini' : 'en cours');
