@@ -9,7 +9,7 @@ import { AppText } from '@/components/AppText';
 import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { CharMeter } from '@/components/CharMeter';
-import { ImageCropper, type CropSettings } from '@/components/ImageCropper';
+import { IMAGE_RATIO, ImageCropper, type CropSettings } from '@/components/ImageCropper';
 import { success } from '@/components/haptics';
 import { useToast } from '@/components/Toast';
 import { Toggle } from '@/components/Toggle';
@@ -200,6 +200,10 @@ export default function Compose() {
       <ImageCropper
         source={cropping}
         initial={cropSettings}
+        // Forme libre par défaut (portrait et carré restent proposés), entre 1:2 et 2:1 comme l'accepte le serveur.
+        ratios={['libre', '4:5', '1:1']}
+        minRatio={IMAGE_RATIO.min}
+        maxRatio={IMAGE_RATIO.max}
         onCancel={() => setCropping(null)}
         onDone={(img, settings) => { setImage(img); setCropSettings(settings); setCropping(null); setError(null); }}
       />

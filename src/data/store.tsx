@@ -595,7 +595,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const { bading } = await api.createBading({
             text: text.trim(),
             anonymous,
-            image: image && dataUrl ? { dataUrl, ratio: image.width / image.height } : null,
+            // Forme bornée à 1:2 – 2:1 (règle du serveur) : l'arrondi en pixels ne doit pas la faire sortir des bornes.
+            image: image && dataUrl ? { dataUrl, ratio: Math.min(2, Math.max(0.5, image.width / image.height)) } : null,
           });
           mergeBadings([bading]);
           setDraft({ text: '', anonymous: false, image: null });

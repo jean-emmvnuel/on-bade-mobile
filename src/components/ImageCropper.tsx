@@ -1,6 +1,6 @@
 /**
- * Recadrage avant publication (F1, RG2). Pour un fil uniforme, deux formats seulement :
- * portrait 4:5 (par défaut) et carré 1:1. Rotation, déplacement, pincement, poignées d'angle.
+ * Recadrage avant publication (F1, RG2) : forme libre (bornée par minRatio / maxRatio, de 1:2 à 2:1 pour un bading),
+ * portrait 4:5 ou carré 1:1. Rotation, déplacement, pincement, poignées d'angle.
  * Sortie : JPEG de 1 080 px de large maximum, sans métadonnées (ré-encodé par expo-image-manipulator).
  */
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
@@ -17,8 +17,9 @@ import { Button } from './Button';
 import { RotateCw, ZoomIn, ZoomOut } from './icons';
 
 export type CropSettings = { ratioKey: RatioKey; rot: number };
-export type RatioKey = '4:5' | '1:1';
-const ALL_RATIOS: { key: RatioKey; label: string; value: number }[] = [
+export type RatioKey = 'libre' | '4:5' | '1:1';
+const ALL_RATIOS: { key: RatioKey; label: string; value: number | null }[] = [
+  { key: 'libre', label: 'Libre', value: null },
   { key: '4:5', label: 'Portrait', value: 4 / 5 },
   { key: '1:1', label: 'Carré', value: 1 },
 ];
@@ -39,10 +40,17 @@ type Props = {
   title?: string;
   /** Aperçu rond (photo de profil). */
   round?: boolean;
+  /** Forme libre : largeur / hauteur entre ces bornes (bading : 0,5 à 2, comme le serveur). */
+  minRatio?: number;
+  maxRatio?: number;
 };
 
-export function ImageCropper({ source, initial, onCancel, onDone, ratios = ['4:5', '1:1'], outMax = 1080, title = 'Recadrer', round = false }: Props) {
+/** Forme d'une image de bading (largeur / hauteur) : de 1:2 à 2:1, comme le serveur. */
+export const IMAGE_RATIO = { min: 0.5, max: 2 };
+
+export function ImageCropper({ source, initial, onCancel, onDone, ratios = ['4:5', '1:1'], outMax = 1080, title = 'Recadrer', round = false, minRatio = 0, maxRatio = Infinity }: Props) {
   const RATIOS = ALL_RATIOS.filter((r) => ratios.includes(r.key));
+  const bound = (r: number) => Math.min(maxRatio, Math.max(minRatio, r));
   const insets = useSafeAreaInsets();
   const [stage, setStage] = useState<{ w: number; h: number } | null>(null);
   const [ratioKey, setRatioKey] = useState<RatioKey>(initial?.ratioKey && ratios.includes(initial.ratioKey) ? initial.ratioKey : ratios[0]);
@@ -56,10 +64,10 @@ export function ImageCropper({ source, initial, onCancel, onDone, ratios = ['4:5
   const W = rot % 180 ? nat.h : nat.w;
   const H = rot % 180 ? nat.w : nat.h;
 
-  // Cadre initial : le plus grand rectangle au bon format dans la scène, image en « cover ».
+  // Cadre initial : le plus grand rectangle au bon format dans la scène (libre : la forme de l'image, bornée), image en « cover ».
   useEffect(() => {
     if (!stage || !source) return;
-    const r = RATIOS.find((x) => x.key === ratioKey)!.value;
+    const r = RATIOS.find((x) => x.key === ratioKey)!.value ?? bound(W / H);
     const aw = stage.w - 2 * PAD, ah = stage.h - 2 * PAD;
     const fw = Math.min(aw, ah * r), fh = fw / r;
     const f = { x: (stage.w - fw) / 2, y: (stage.h - fh) / 2, w: fw, h: fh };
@@ -86,11 +94,13 @@ export function ImageCropper({ source, initial, onCancel, onDone, ratios = ['4:5
     let w = Math.max(MIN_FRAME, f0.w + (left ? -dx : dx));
     let h = Math.max(MIN_FRAME, f0.h + (topSide ? -dy : dy));
     if (r) { if (w / h > r) w = h * r; else h = w / r; }
+    else if (w / h > maxRatio) w = h * maxRatio;
+    else if (w / h < minRatio) h = w / minRatio;
     const imgL = cur.cx - (W * cur.s) / 2, imgT = cur.cy - (H * cur.s) / 2;
     const maxW = left ? ax - Math.max(PAD / 2, imgL) : Math.min(stage!.w - PAD / 2, imgL + W * cur.s) - ax;
     const maxH = topSide ? ay - Math.max(PAD / 2, imgT) : Math.min(stage!.h - PAD / 2, imgT + H * cur.s) - ay;
-    if (w > maxW) { w = maxW; if (r) h = w / r; }
-    if (h > maxH) { h = maxH; if (r) w = h * r; }
+    if (w > maxW) { w = maxW; if (r) h = w / r; else if (w / h < minRatio) h = w / minRatio; }
+    if (h > maxH) { h = maxH; if (r) w = h * r; else if (w / h > maxRatio) w = h * maxRatio; }
     return { x: left ? ax - w : ax, y: topSide ? ay - h : ay, w, h };
   };
 
@@ -181,7 +191,7 @@ export function ImageCropper({ source, initial, onCancel, onDone, ratios = ['4:5
               const on = r.key === ratioKey;
               return (
                 <Pressable key={r.key} onPress={() => setRatioKey(r.key)} accessibilityRole="radio" accessibilityState={{ checked: on }} style={{ flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: radius.md, backgroundColor: on ? colors.brandSoft : colors.surface, borderWidth: on ? 1.5 : 0, borderColor: colors.brandInk }}>
-                  <AppText variant="label" color={on ? colors.brandInk : colors.text}>{r.key}</AppText>
+                  <AppText variant="label" color={on ? colors.brandInk : colors.text}>{r.key === 'libre' ? '↔' : r.key}</AppText>
                   <AppText variant="small" color={on ? colors.brandInk : colors.text2}>{r.label}</AppText>
                 </Pressable>
               );
