@@ -9,7 +9,7 @@ import { Field } from '@/components/Field';
 import { Eye, EyeOff } from '@/components/icons';
 import { useToast } from '@/components/Toast';
 import { passwordProblem, useStore } from '@/data/store';
-import { errorMessage } from '@/lib/api';
+import { errorMessage, isApiError } from '@/lib/api';
 import { colors } from '@/theme/tokens';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -76,6 +76,8 @@ export default function Signup() {
       if (res === 'taken') return setErrors({ email: 'Un compte existe déjà avec cet e-mail. Connecte-toi plutôt.' });
       router.push('/(auth)/verify');
     } catch (e) {
+      // Adresse jetable refusée par le serveur : le message va sous le champ e-mail.
+      if (isApiError(e) && e.code === 'disposable_email') return setErrors({ email: errorMessage(e) });
       setErrors({ form: errorMessage(e) });
     } finally {
       setLoading(false);
