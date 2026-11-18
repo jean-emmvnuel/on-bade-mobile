@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { BadgeCheck, Bell, Check, ChevronRight, CircleX, Copy, IdCard, Lock, LogOut, Trash2, UserRoundPen, UserX } from '@/components/icons';
+import { BadgeCheck, Bell, Check, ChevronRight, CircleX, Copy, IdCard, Lock, LogOut, Trash2, UserRound, UserRoundPen, UserX } from '@/components/icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { useEffect, useState } from 'react';
@@ -46,9 +46,12 @@ function Row({ icon, label, detail, onPress, danger, right }: { icon: React.Reac
 
 const fmt = (ts: number) => new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
+/** « le 20 novembre à 14:05 » */
+const nextChange = (ms: number) => `le ${new Date(ms).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à ${new Date(ms).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+
 export default function Settings() {
   const toast = useToast();
-  const { session, users, feed, mentionPolicy, setMentionPolicy, badge, requestBadge, signOut, enablePush, blocked, unblock, changePseudo, deletion, requestDeletion, cancelDeletion, comments, favorites, customStickers, myStickers, notifications, loadSettings, loadExport } = useStore();
+  const { session, users, feed, mentionPolicy, setMentionPolicy, badge, requestBadge, signOut, enablePush, blocked, unblock, changePseudo, changeName, deletion, requestDeletion, cancelDeletion, comments, favorites, customStickers, myStickers, notifications, loadSettings, loadExport } = useStore();
   const [busy, setBusy] = useState<string | null>(null);
   const [pseudoTaken, setPseudoTaken] = useState<string | null>(null);
   // Mentions, comptes bloqués, badge et suppression en cours viennent du serveur.
@@ -69,7 +72,7 @@ export default function Settings() {
     }
   };
   const [exporting, setExporting] = useState(false);
-  const [sheet, setSheet] = useState<null | 'badge' | 'pseudo' | 'deletion'>(null);
+  const [sheet, setSheet] = useState<null | 'badge' | 'pseudo' | 'name' | 'deletion'>(null);
   const [delReason, setDelReason] = useState<string | null>(null);
   const [delAck, setDelAck] = useState(false);
   const [push, setPush] = useState<PushStatus>('undetermined');
@@ -80,6 +83,8 @@ export default function Settings() {
   const [links, setLinks] = useState('');
   const [idDoc, setIdDoc] = useState<string | null>(null);
   const [pseudo, setPseudo] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const me = session?.user;
   if (!me) return null;
   const close = () => setSheet(null);
@@ -114,6 +119,14 @@ export default function Settings() {
   const pseudoError = (pseudo ? pseudoFormatError(pseudo) : null)
     ?? (pseudoTaken === pseudo ? 'Ce pseudo est déjà pris.' : null)
     ?? (Object.values(users).some((u) => u.id !== me.id && u.pseudo.toLowerCase() === pseudo.toLowerCase()) ? 'Ce pseudo est déjà pris.' : null);
+  // Pseudo changé il y a moins de 48 h : seul un changement de majuscules reste possible d'ici là.
+  const pseudoWait = (me.pseudoChangeableAt ?? 0) > Date.now() ? me.pseudoChangeableAt! : 0;
+  const pseudoBlocked = !!pseudoWait && pseudo.toLowerCase() !== me.pseudo.toLowerCase();
+  const fullName = [me.firstName, me.lastName].filter(Boolean).join(' ');
+  const nameChanged = firstName.trim() !== (me.firstName ?? '') || lastName.trim() !== (me.lastName ?? '');
+  const saveName = async () => {
+    if (await run('name', () => changeName(firstName.trim(), lastName.trim()), 'Prénom et nom modifiés')) close();
+  };
   const savePseudo = async () => {
     setBusy('pseudo');
     try {
@@ -137,7 +150,8 @@ export default function Settings() {
       <ScreenHeader title="Paramètres" />
       <ScrollView contentContainerStyle={{ paddingVertical: space.xl, gap: space.xl }}>
         <Section title="Compte">
-          <Row icon={<UserRoundPen size={22} color={colors.text2} />} label={`@${me.pseudo}`} detail="Modifier le pseudo" onPress={() => { setPseudo(me.pseudo); setSheet('pseudo'); }} />
+          <Row icon={<UserRoundPen size={22} color={colors.text2} />} label={`@${me.pseudo}`} detail={pseudoWait ? `Modifiable de nouveau ${nextChange(pseudoWait)}` : 'Modifier le pseudo'} onPress={() => { setPseudo(me.pseudo); setSheet('pseudo'); }} />
+          <Row icon={<UserRound size={22} color={colors.text2} />} label={fullName || 'Prénom et nom'} detail="Modifier le prénom et le nom" onPress={() => { setFirstName(me.firstName ?? ''); setLastName(me.lastName ?? ''); setSheet('name'); }} />
           <Row icon={<BadgeCheck size={22} color={colors.brandInk} />} label="Demander le badge vérifié" detail={badgeLabel} onPress={() => { setStep('check'); setSheet('badge'); }} />
         </Section>
 
@@ -224,9 +238,18 @@ export default function Settings() {
 
       <Sheet visible={sheet === 'pseudo'} onClose={close} title="Modifier le pseudo">
         <View style={{ paddingHorizontal: space.xl, gap: space.lg }}>
-          <Field label="Nouveau pseudo" prefix="@" autoCapitalize="none" autoCorrect={false} value={pseudo} onChangeText={(t) => setPseudo(t.trim())} maxLength={20} error={pseudoError} hint={PSEUDO_RULES} />
+          <Field label="Nouveau pseudo" prefix="@" autoCapitalize="none" autoCorrect={false} value={pseudo} onChangeText={(t) => setPseudo(t.trim())} maxLength={20} error={pseudoError} hint={`${PSEUDO_RULES} Un changement tous les 2 jours au plus.`} />
+          {pseudoWait > 0 && <AppText variant="meta" color={colors.danger}>Tu as changé de pseudo récemment : prochain changement possible {nextChange(pseudoWait)}.</AppText>}
           {me.verified && <AppText variant="meta" color={colors.danger}>Ton badge vérifié sera retiré : il faudra le redemander.</AppText>}
-          <Button label="Enregistrer" disabled={!pseudo || !!pseudoError || pseudo === me.pseudo} loading={busy === 'pseudo'} onPress={savePseudo} />
+          <Button label="Enregistrer" disabled={!pseudo || !!pseudoError || pseudo === me.pseudo || pseudoBlocked} loading={busy === 'pseudo'} onPress={savePseudo} />
+        </View>
+      </Sheet>
+
+      <Sheet visible={sheet === 'name'} onClose={close} title="Prénom et nom">
+        <View style={{ paddingHorizontal: space.xl, gap: space.lg }}>
+          <Field label="Prénom" autoComplete="given-name" value={firstName} onChangeText={setFirstName} maxLength={50} error={!firstName.trim() ? 'Obligatoire' : null} />
+          <Field label="Nom" autoComplete="family-name" value={lastName} onChangeText={setLastName} maxLength={50} error={!lastName.trim() ? 'Obligatoire' : null} hint="Visibles seulement par toi : sur On Bade, les autres voient ton pseudo." />
+          <Button label="Enregistrer" disabled={!firstName.trim() || !lastName.trim() || !nameChanged} loading={busy === 'name'} onPress={saveName} />
         </View>
       </Sheet>
 

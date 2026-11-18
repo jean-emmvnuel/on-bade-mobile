@@ -132,3 +132,13 @@ describe('Messages de l’équipe', () => {
     (globalThis as any).fetch = undefined;
   });
 });
+
+describe('Mon profil : prénom, nom et délai du pseudo', () => {
+  it('garde prénom, nom et la date du prochain changement de pseudo pour mon profil seulement', () => {
+    const me = fromServerUser({ id: 'srv-me', username: 'moi', email: 'm@x.ci', firstName: 'Awa', lastName: 'Koné', pseudoChangeableAt: 123 }, ids);
+    expect(me).toMatchObject({ firstName: 'Awa', lastName: 'Koné', pseudoChangeableAt: 123 });
+    const other = fromServerUser({ id: 'srv-2', username: 'autre', firstName: 'X' }, ids);
+    expect(other.firstName).toBeUndefined();
+    expect(other.pseudoChangeableAt).toBeUndefined();
+  });
+});

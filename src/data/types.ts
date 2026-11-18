@@ -7,6 +7,10 @@ export type User = {
   /** Photo de profil (fichier local recadré en carré, 400 px). En prod : URL du CDN. */
   photo?: string;
   joinedAt: number;
+  /** Mon profil seulement : prénom et nom (privés), date (ms) du prochain changement de pseudo possible (0 = tout de suite). */
+  firstName?: string;
+  lastName?: string;
+  pseudoChangeableAt?: number;
 };
 
 /** Image d'un bading, déjà recadrée et compressée (F1 RG2). */

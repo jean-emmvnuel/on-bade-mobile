@@ -228,7 +228,8 @@ export const unsaveSticker = (stickerId: string) => del(`/me/stickers/${id(stick
 // Mon compte
 export const getProfile = () => get('/me/profile');
 export const getExport = () => get('/me/export');
-export const updateMe = (changes: { pseudo?: string }) => patch('/me', changes);
+/** 429 pseudo_too_soon : pseudo déjà changé il y a moins de 48 h. */
+export const updateMe = (changes: { pseudo?: string; firstName?: string; lastName?: string }) => patch('/me', changes);
 export const updatePhoto = (image: string | null) => put('/me/photo', { image });
 export const getSettings = () => get('/me/settings');
 export const updateSettings = (changes: { mentionPolicy: string }) => patch('/me/settings', changes);

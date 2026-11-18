@@ -46,6 +46,12 @@ export function fromServerUser(u: any, ids: IdMapper): User {
   };
   const photo = u.photo ?? u.avatarUrl;
   if (photo) user.photo = photo;
+  // Mon profil (il contient l'e-mail) : prénom, nom, délai avant le prochain changement de pseudo (48 h).
+  if ('email' in u) {
+    if (u.firstName) user.firstName = u.firstName;
+    if (u.lastName) user.lastName = u.lastName;
+    user.pseudoChangeableAt = Number(u.pseudoChangeableAt) || 0;
+  }
   return user;
 }
 

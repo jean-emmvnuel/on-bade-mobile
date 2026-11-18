@@ -56,6 +56,8 @@ export type DeletionRequest = { status: 'none' | 'pending'; requestedAt?: number
 // Clés du petit stockage persistant (trousseau du téléphone).
 const ONBOARDED_KEY = 'onbade-onboarded';
 const ME_KEY = 'onbade-me';
+/** Délai entre deux changements de pseudo (même règle que le serveur). */
+export const PSEUDO_CHANGE_GAP_MS = 48 * 3_600_000;
 
 // ─── Erreurs des actions en arrière-plan ──────────────────
 // Le store est monté au-dessus des toasts : l'app lui donne une fonction pour afficher les erreurs.
@@ -159,6 +161,8 @@ type Store = {
   unblock: (userId: string) => Promise<void>;
   /** Lève une ApiError 'taken' si le pseudo est pris. */
   changePseudo: (pseudo: string) => Promise<void>;
+  /** Prénom et nom (privés, visibles seulement par moi). */
+  changeName: (firstName: string, lastName: string) => Promise<void>;
   loadProfile: () => Promise<void>;
   loadSettings: () => Promise<void>;
   /** Charge tout ce qui concerne mon compte avant la « copie de mes données ». */
@@ -487,10 +491,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     } else {
       // F7 RG7: changing the pseudo removes the verified badge.
-      setUsers((u) => (u[ME_ID] ? { ...u, [ME_ID]: { ...u[ME_ID], pseudo, verified: false } } : u));
-      setSession((s) => (s ? { ...s, user: { ...s.user, pseudo, verified: false } } : s));
+      const pseudoChangeableAt = Date.now() + PSEUDO_CHANGE_GAP_MS;
+      setUsers((u) => (u[ME_ID] ? { ...u, [ME_ID]: { ...u[ME_ID], pseudo, verified: false, pseudoChangeableAt } } : u));
+      setSession((s) => (s ? { ...s, user: { ...s.user, pseudo, verified: false, pseudoChangeableAt } } : s));
     }
     setBadge((b) => (b.status === 'accepted' ? { status: 'none' } : b));
+  }, [storeMe]);
+
+  const changeName = useCallback(async (firstName: string, lastName: string) => {
+    if (USE_BACKEND) {
+      const { user } = await api.updateMe({ firstName, lastName });
+      storeMe(user);
+      return;
+    }
+    setUsers((u) => (u[ME_ID] ? { ...u, [ME_ID]: { ...u[ME_ID], firstName, lastName } } : u));
+    setSession((s) => (s ? { ...s, user: { ...s.user, firstName, lastName } } : s));
   }, [storeMe]);
 
   // ─── Fil et badings ───
@@ -1014,6 +1029,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       block,
       unblock,
       changePseudo,
+      changeName,
       loadProfile,
       loadSettings,
       loadExport,
@@ -1021,7 +1037,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPendingLink,
       searchPseudos,
     }),
-    [ready, onboarded, session, users, sortedFeed, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, markRead, setMentionPolicy, requestBadge, comments, commentsFor, commentTree, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
+    [ready, onboarded, session, users, sortedFeed, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, markRead, setMentionPolicy, requestBadge, comments, commentsFor, commentTree, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, changeName, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

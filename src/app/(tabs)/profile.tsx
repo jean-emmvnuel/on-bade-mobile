@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Bookmark, ImageIcon, Lock, Pencil, Settings, Trash2 } from '@/components/icons';
+import { Bookmark, ImageIcon, Lock, Pencil, Settings, Trash2, UserRoundPen } from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -114,10 +114,17 @@ export default function Profile() {
                   </View>
                 ))}
               </View>
-              <PressableScale onPress={onPhotoPress} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 16, marginTop: space.sm, borderRadius: radius.pill, backgroundColor: colors.surface2 }}>
-                <ImageIcon size={15} color={colors.text} />
-                <AppText variant="label">{me.photo ? 'Changer ma photo' : 'Ajouter une photo'}</AppText>
-              </PressableScale>
+              <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
+                <PressableScale onPress={onPhotoPress} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.surface2 }}>
+                  <ImageIcon size={15} color={colors.text} />
+                  <AppText variant="label">{me.photo ? 'Changer ma photo' : 'Ajouter une photo'}</AppText>
+                </PressableScale>
+                {/* Pseudo (une fois tous les 2 jours), prénom et nom : dans les paramètres, section Compte. */}
+                <PressableScale onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Modifier mon profil : pseudo, prénom et nom" style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.surface2 }}>
+                  <UserRoundPen size={15} color={colors.text} />
+                  <AppText variant="label">Modifier</AppText>
+                </PressableScale>
+              </View>
             </Animated.View>
             {/* Onglets en segments */}
             <View accessibilityRole="tablist" style={{ flexDirection: 'row', gap: 4, marginHorizontal: space.md, marginBottom: space.md, padding: 4, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.pill }}>
