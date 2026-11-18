@@ -166,7 +166,7 @@ export default function Profile() {
       <ImageCropper
         source={cropping}
         ratios={['1:1']}
-        outMax={400}
+        outMax={256}
         round
         title="Photo de profil"
         onCancel={() => setCropping(null)}
