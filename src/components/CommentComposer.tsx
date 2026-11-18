@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { compact, MAX_MY_STICKERS, RULES, useStore } from '@/data/store';
 import { STICKERS } from '@/data/stickers';
 import { errorMessage } from '@/lib/api';
-import { pickImage, type PickedImage } from '@/lib/pickImage';
+import { pickStickerImage, type PickedImage } from '@/lib/pickImage';
 import { useAudioRecorder } from 'expo-audio';
 import { barFromDb, clock, currentVoiceMax, MIN_VOICE_MS, prepareMic, releaseMic, toRecording, VOICE_OPTIONS, voiceMaxSeconds } from '@/lib/voice';
 import type { Comment } from '@/data/types';
@@ -146,10 +146,22 @@ export const CommentComposer = forwardRef<ComposerHandle, { badingId: string; on
     setParent(null);
     onSent?.(c);
   };
+  const saveNewSticker = async (uri: string) => {
+    if (myStickers.length >= MAX_MY_STICKERS) { toast(`${compact(MAX_MY_STICKERS)} stickers maximum : retire-en un d'abord.`); return; }
+    try {
+      const id = await createSticker(uri);
+      if (!id) { toast(`${compact(MAX_MY_STICKERS)} stickers maximum : retire-en un d'abord.`); return; }
+      setStTab('mine'); setPicker(true); toast('Sticker ajouté à tes stickers');
+    } catch (e) {
+      toast(errorMessage(e, "Le sticker n'a pas pu être créé (WebP, PNG ou GIF, 1,5 Mo max.). Réessaie."));
+    }
+  };
+  // Sticker : GIF ou WebP (stickers WhatsApp) envoyé tel quel ; image fixe recadrée puis enregistrée en PNG transparent.
   const newSticker = async () => {
-    const r = await pickImage();
+    const r = await pickStickerImage();
     if (!r.ok) { if (r.error) toast(r.error); return; }
-    setCreating(r.image);
+    if (r.asIs) await saveNewSticker(r.image.uri);
+    else setCreating(r.image);
   };
   const tabIds = stTab === 'recent' ? recentStickers : stTab === 'mine' ? myStickers : STICKERS.map((x) => x.id);
 
@@ -304,21 +316,12 @@ export const CommentComposer = forwardRef<ComposerHandle, { badingId: string; on
       {tooLong && <AppText variant="small" color={colors.danger}>{RULES.commentMax} caractères maximum ({text.length}).</AppText>}
       <ImageCropper
         source={creating}
-        ratios={['1:1']}
+        ratios={['libre', '1:1']}
         outMax={512}
+        format="png"
         title="Créer un sticker"
         onCancel={() => setCreating(null)}
-        onDone={async (img) => {
-          setCreating(null);
-          if (myStickers.length >= MAX_MY_STICKERS) { toast(`${compact(MAX_MY_STICKERS)} stickers maximum : retire-en un d'abord.`); return; }
-          try {
-            const id = await createSticker(img.uri);
-            if (!id) { toast(`${compact(MAX_MY_STICKERS)} stickers maximum : retire-en un d'abord.`); return; }
-            setStTab('mine'); setPicker(true); toast('Sticker créé et ajouté à tes stickers');
-          } catch (e) {
-            toast(errorMessage(e, "Le sticker n'a pas pu être créé. Réessaie."));
-          }
-        }}
+        onDone={(img) => { setCreating(null); void saveNewSticker(img.uri); }}
       />
     </View>
   );

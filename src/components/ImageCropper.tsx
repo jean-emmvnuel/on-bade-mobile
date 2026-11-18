@@ -43,12 +43,14 @@ type Props = {
   /** Forme libre : largeur / hauteur entre ces bornes (bading : 0,5 à 2, comme le serveur). */
   minRatio?: number;
   maxRatio?: number;
+  /** Format produit : JPEG (bading, photo de profil) ou PNG transparent (sticker : le serveur n'accepte que WebP, PNG ou GIF). */
+  format?: 'jpeg' | 'png';
 };
 
 /** Forme d'une image de bading (largeur / hauteur) : de 1:2 à 2:1, comme le serveur. */
 export const IMAGE_RATIO = { min: 0.5, max: 2 };
 
-export function ImageCropper({ source, initial, onCancel, onDone, ratios = ['4:5', '1:1'], outMax = 1080, title = 'Recadrer', round = false, minRatio = 0, maxRatio = Infinity }: Props) {
+export function ImageCropper({ source, initial, onCancel, onDone, ratios = ['4:5', '1:1'], outMax = 1080, title = 'Recadrer', round = false, minRatio = 0, maxRatio = Infinity, format = 'jpeg' }: Props) {
   const RATIOS = ALL_RATIOS.filter((r) => ratios.includes(r.key));
   const bound = (r: number) => Math.min(maxRatio, Math.max(minRatio, r));
   const insets = useSafeAreaInsets();
@@ -138,7 +140,7 @@ export function ImageCropper({ source, initial, onCancel, onDone, ratios = ['4:5
       ctx.crop({ originX: sx, originY: sy, width: sw, height: sh });
       if (sw > outMax) ctx.resize({ width: outMax });
       const ref = await ctx.renderAsync();
-      const out = await ref.saveAsync({ compress: 0.84, format: SaveFormat.JPEG });
+      const out = await ref.saveAsync(format === 'png' ? { format: SaveFormat.PNG } : { compress: 0.84, format: SaveFormat.JPEG });
       onDone({ uri: out.uri, width: out.width, height: out.height }, { ratioKey, rot });
     } finally {
       setBusy(false);
