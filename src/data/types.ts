@@ -57,7 +57,9 @@ export type Comment = {
   audio?: VoiceClip;
 };
 
-export type NotificationKind = 'like' | 'rebade' | 'mention' | 'badge' | 'comment' | 'reply';
+export type NotificationKind = 'like' | 'rebade' | 'mention' | 'badge' | 'comment' | 'reply'
+  /** Messages de l'équipe On Bade : annonce à tous, message personnel, avertissement. */
+  | 'announcement' | 'admin_message' | 'warning';
 
 export type AppNotification = {
   id: string;
@@ -68,6 +70,9 @@ export type AppNotification = {
   badingId?: string;
   /** accepted = demande validée, granted = badge attribué directement par l'admin, refused = demande refusée. */
   badgeStatus?: 'accepted' | 'granted' | 'refused';
+  /** Messages de l'équipe : titre (facultatif) et texte. */
+  title?: string;
+  body?: string;
   createdAt: number;
   read: boolean;
 };

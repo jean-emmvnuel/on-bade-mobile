@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { AtSign, BadgeCheck, Laugh, MessageCircle, Repeat2 } from '@/components/icons';
+import { AtSign, BadgeCheck, Laugh, Mail, Megaphone, MessageCircle, Repeat2, ShieldAlert } from '@/components/icons';
 import { useCallback } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -41,6 +41,15 @@ export default function Notifications() {
         return { Icon: MessageCircle, text: `${actor} a répondu à ton commentaire` };
       case 'badge':
         return { Icon: BadgeCheck, text: n.badgeStatus === 'granted' ? 'L’équipe On Bade t’a attribué le badge vérifié' : n.badgeStatus === 'accepted' ? 'Ta demande de badge vérifié est acceptée' : `Ta demande de badge vérifié est refusée${badge.reason ? ` : ${badge.reason}` : ''}.` };
+      // Messages de l'équipe : titre en gras, texte complet en dessous (pas d'avatar).
+      case 'announcement':
+        return { Icon: Megaphone, text: n.title || 'Annonce de l’équipe On Bade', team: true };
+      case 'admin_message':
+        return { Icon: Mail, text: n.title || 'Message de l’équipe On Bade', team: true };
+      case 'warning':
+        return { Icon: ShieldAlert, text: n.title || 'Avertissement de l’équipe On Bade', team: true };
+      default:
+        return { Icon: Megaphone, text: n.title || 'Notification On Bade', team: true };
     }
   };
 
@@ -52,21 +61,23 @@ export default function Notifications() {
         data={notifications}
         keyExtractor={(n) => n.id}
         renderItem={({ item: n, index }) => {
-          const { Icon, text } = describe(n);
+          const { Icon, text, team } = describe(n) as { Icon: typeof Megaphone; text: string; team?: boolean };
           const b = n.badingId ? getBading(n.badingId) : undefined;
           return (
             <Animated.View entering={FadeInDown.duration(300).delay(index * 40)}>
               <Pressable
+                disabled={!!team && !n.badingId}
                 onPress={() => (n.badingId ? router.push(`/bading/${n.badingId}`) : router.push('/settings'))}
                 style={({ pressed }) => ({ flexDirection: 'row', gap: space.md, padding: space.lg, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: pressed ? colors.surface : n.read ? colors.bg : 'rgba(152,16,230,0.07)' })}>
                 <View style={{ width: 44, alignItems: 'flex-end' }}>
-                  <Icon size={26} color={n.kind === 'badge' && n.badgeStatus === 'refused' ? colors.text2 : colors.brandInk} />
+                  <Icon size={26} color={(n.kind === 'badge' && n.badgeStatus === 'refused') ? colors.text2 : colors.brandInk} />
                 </View>
                 <View style={{ flex: 1, gap: 6 }}>
-                  {n.kind !== 'badge' && <Avatar user={n.actorId ? users[n.actorId] ?? null : null} size={32} />}
-                  <AppText variant="body">
+                  {n.kind !== 'badge' && !team && <Avatar user={n.actorId ? users[n.actorId] ?? null : null} size={32} />}
+                  <AppText variant={team ? 'bodyStrong' : 'body'}>
                     {text} <AppText variant="meta" color={colors.text3}>· {timeAgo(n.createdAt)}</AppText>
                   </AppText>
+                  {team && !!n.body && <AppText variant="body" color={colors.text2}>{n.body}</AppText>}
                   {b && <AppText variant="meta" color={colors.text2} numberOfLines={2}>{b.text}</AppText>}
                 </View>
                 {!n.read && <View accessibilityLabel="Non lue" style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand, marginTop: 8 }} />}

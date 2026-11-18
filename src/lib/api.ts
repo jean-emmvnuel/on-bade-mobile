@@ -245,4 +245,5 @@ export const cancelDeletion = () => del('/me/deletion');
 export const registerPushToken = (expoToken: string) => post('/me/push', { expoToken });
 export const unregisterPushToken = (expoToken: string) => request('/me/push', { method: 'DELETE', body: { endpoint: expoToken } });
 export const getNotifications = () => get('/notifications');
-export const markNotificationsRead = () => post('/notifications/read');
+/** Sans `ids` : tout passe en « lu ». Avec `ids` : seulement ces notifications (ex. annonce lue avec « J'ai compris »). */
+export const markNotificationsRead = (ids?: string[]) => post('/notifications/read', ids ? { ids } : undefined);

@@ -2,9 +2,10 @@ import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { Redirect, router, Tabs } from 'expo-router';
 import { Flame, House, Plus, Trophy, UserRound } from '@/components/icons';
 import { useEffect } from 'react';
-import { Platform, View } from 'react-native';
+import { AppState, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AnnouncementGate } from '@/components/AnnouncementGate';
 import { AppText } from '@/components/AppText';
 import { tap } from '@/components/haptics';
 import { PressableScale } from '@/components/PressableScale';
@@ -80,13 +81,22 @@ export default function TabsLayout() {
     loadSettings().catch(() => {});
     loadStickers().catch(() => {});
   }, [signedIn, loadNotifications, loadSettings, loadStickers]);
+  // Retour dans l'app : liste relue, pour qu'une annonce arrivée entre-temps s'affiche aussitôt.
+  useEffect(() => {
+    if (!signedIn) return;
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') loadNotifications().catch(() => {}); });
+    return () => sub.remove();
+  }, [signedIn, loadNotifications]);
   if (!session) return <Redirect href="/" />;
   return (
+    <>
+    <AnnouncementGate />
     <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.bg }, animation: 'fade' }}>
       <Tabs.Screen name="index" />
       <Tabs.Screen name="moment" />
       <Tabs.Screen name="classement" />
       <Tabs.Screen name="profile" />
     </Tabs>
+    </>
   );
 }

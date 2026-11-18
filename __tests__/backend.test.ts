@@ -1,7 +1,7 @@
 // Branchement sur le backend : client HTTP, conversion des objets du serveur, règles du pseudo.
-import { ApiError, errorMessage, request } from '@/lib/api';
+import { ApiError, errorMessage, markNotificationsRead, request } from '@/lib/api';
 import { PSEUDO_RULES, pseudoFormatError } from '@/lib/pseudo';
-import { fromServerBading, fromServerComment, fromServerSticker, fromServerUser, idMapper, pruneFeed } from '@/data/server';
+import { fromServerBading, fromServerComment, fromServerNotification, fromServerSticker, fromServerUser, idMapper, pruneFeed } from '@/data/server';
 import { ME_ID } from '@/data/seed';
 import { momentOf, withPinsFirst } from '@/data/store';
 import type { Bading } from '@/data/types';
@@ -113,5 +113,22 @@ describe('Badings épinglés', () => {
     expect(withPinsFirst(feed, [{ id: 'd' }, { id: 'b', label: 'Bading du jour' }]).map((x) => x.id)).toEqual(['d', 'b', 'a', 'c']);
     expect(withPinsFirst(feed, [])).toBe(feed);
     expect(withPinsFirst(feed, [{ id: 'absent' }]).map((x) => x.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
+
+describe('Messages de l’équipe', () => {
+  it('une annonce garde son titre et son texte (affichés en grand jusqu’à « J’ai compris »)', () => {
+    const n = fromServerNotification({ id: 'n1', kind: 'announcement', title: 'Nouveauté', body: 'Les notes vocales arrivent', createdAt: 5, read: false }, ids);
+    expect(n).toMatchObject({ id: 'n1', kind: 'announcement', title: 'Nouveauté', body: 'Les notes vocales arrivent', actorId: null, read: false });
+  });
+
+  it('« lu » pour une seule notification : seuls ces identifiants partent au serveur', async () => {
+    const calls: any[] = [];
+    (globalThis as any).fetch = jest.fn(async (_url: string, init: any) => { calls.push(init); return { ok: true, status: 204, text: async () => '' }; });
+    await markNotificationsRead(['n1']);
+    await markNotificationsRead();
+    expect(JSON.parse(calls[0].body)).toEqual({ ids: ['n1'] });
+    expect(calls[1].body).toBeUndefined();
+    (globalThis as any).fetch = undefined;
   });
 });

@@ -119,6 +119,8 @@ type Store = {
   setDraft: (draft: Draft) => void;
   loadNotifications: () => Promise<void>;
   markAllRead: () => void;
+  /** Une seule notification lue (annonce fermée avec « J'ai compris »). */
+  markRead: (id: string) => void;
   setMentionPolicy: (p: MentionPolicy) => void;
   requestBadge: (links: string[], documentUri?: string | null) => Promise<void>;
   comments: Comment[];
@@ -800,6 +802,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (USE_BACKEND && live.current.session) fireAndForget(api.markNotificationsRead());
   }, []);
 
+  const markRead = useCallback((id: string) => {
+    setNotifications((n) => n.map((x) => (x.id === id ? { ...x, read: true } : x)));
+    if (USE_BACKEND && live.current.session) fireAndForget(api.markNotificationsRead([id]));
+  }, []);
+
   const pushNotification = useCallback((n: Omit<AppNotification, 'id' | 'createdAt' | 'read'>) => {
     setNotifications((ns) => [{ ...n, id: uid('n'), createdAt: Date.now(), read: false }, ...ns]);
   }, []);
@@ -977,6 +984,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setDraft,
       loadNotifications,
       markAllRead,
+      markRead,
       setMentionPolicy,
       requestBadge,
       comments,
@@ -1013,7 +1021,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPendingLink,
       searchPseudos,
     }),
-    [ready, onboarded, session, users, sortedFeed, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, setMentionPolicy, requestBadge, comments, commentsFor, commentTree, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
+    [ready, onboarded, session, users, sortedFeed, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, markRead, setMentionPolicy, requestBadge, comments, commentsFor, commentTree, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
