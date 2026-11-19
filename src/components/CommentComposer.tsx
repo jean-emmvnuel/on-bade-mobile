@@ -27,7 +27,7 @@ export type ComposerHandle = { replyTo: (c: Comment) => void; focus: () => void 
 /** Bottom composer: "Ajoute un commentaire…", with a dismissible « Réponse à @x » chip. */
 export const CommentComposer = forwardRef<ComposerHandle, { badingId: string; onSent?: (c: Comment) => void }>(function CommentComposer({ badingId, onSent }, ref) {
   const insets = useSafeAreaInsets();
-  const { session, addComment, users, recentStickers, myStickers, createSticker, unsaveSticker, customStickers } = useStore();
+  const { session, addComment, commentCount, users, recentStickers, myStickers, createSticker, unsaveSticker, customStickers } = useStore();
   const toast = useToast();
   const [text, setText] = useState('');
   const [picker, setPicker] = useState(false);
@@ -257,7 +257,7 @@ export const CommentComposer = forwardRef<ComposerHandle, { badingId: string; on
           value={text}
           onChangeText={setText}
           multiline
-          placeholder={parent ? 'Ta réponse…' : 'Ton commentaire…'}
+          placeholder={parent ? 'Ta réponse…' : commentCount(badingId) ? 'Ton commentaire…' : 'Écris le 1er commentaire 🥇'}
           placeholderTextColor={colors.text3}
           selectionColor={colors.brandInk}
           accessibilityLabel={parent ? 'Ta réponse' : 'Ton commentaire'}

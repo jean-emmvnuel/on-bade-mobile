@@ -1,6 +1,6 @@
 // Fil de commentaires d'un bading : arbre sur 4 niveaux, repli des réponses, menus (signaler, supprimer, stickers).
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
@@ -11,7 +11,7 @@ import type { Comment } from '@/data/types';
 
 /** Élément affiché (sa position à l'écran sert à défiler jusqu'au commentaire ciblé). */
 export type HostView = React.ComponentRef<typeof View>;
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, fonts, radius, space } from '@/theme/tokens';
 
 import { AppText } from './AppText';
 import { Avatar } from './Avatar';
@@ -30,11 +30,13 @@ const PREVIEW_REPLIES = 2;
 type RowProps = {
   /** Commentaire ouvert depuis une notification : encadré, et sa position est donnée à l'écran pour y défiler. */
   highlighted?: boolean; onTargetLayout?: (view: HostView) => void;
+  /** Premier commentaire du bading : médaille « 🥇 Premier commentaire ». */
+  first?: boolean;
   c: Comment; reply?: boolean; showReplyTo?: boolean; replyCount?: number; collapsed?: boolean; onToggle?: () => void;
   onReply: (c: Comment) => void; onMore: (c: Comment) => void; onDelete: (c: Comment) => void; onSticker: (id: string) => void;
 };
 
-function CommentRow({ c, reply, showReplyTo, replyCount = 0, collapsed, onToggle, onReply, onMore, onDelete, onSticker, highlighted, onTargetLayout }: RowProps) {
+function CommentRow({ c, reply, showReplyTo, replyCount = 0, collapsed, onToggle, onReply, onMore, onDelete, onSticker, highlighted, onTargetLayout, first }: RowProps) {
   const rowRef = useRef<HostView>(null);
   const { users, toggleCommentLike, session } = useStore();
   const mine = c.authorId === session?.user.id;
@@ -47,10 +49,15 @@ function CommentRow({ c, reply, showReplyTo, replyCount = 0, collapsed, onToggle
         <Avatar user={u ?? null} size={reply ? 28 : 36} />
       </Pressable>
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <AppText variant="label" style={{ fontSize: 14, flexShrink: 1 }} numberOfLines={1}>{u?.pseudo ?? 'Badeur'}</AppText>
           {u?.verified && <Verified size={13} />}
           <AppText variant="small" color={colors.text3}>· {timeAgo(c.createdAt)}</AppText>
+          {first && (
+            <View accessibilityLabel="Premier commentaire" style={{ paddingHorizontal: 8, paddingVertical: 1, borderRadius: radius.pill, backgroundColor: 'rgba(255,201,60,0.14)' }}>
+              <AppText variant="small" color="#FFC93C" style={{ fontSize: 11.5, fontFamily: fonts.bodyBold }}>🥇 Premier commentaire</AppText>
+            </View>
+          )}
         </View>
         {showReplyTo && c.replyTo && <AppText variant="small" color={colors.text3}>en réponse à <AppText variant="small" color={colors.brandInk}>@{c.replyTo}</AppText></AppText>}
         {c.audio ? (
@@ -97,7 +104,7 @@ const countAll = (nodes: CommentNode[]): number => nodes.reduce((n, x) => n + 1 
 const involves = (nodes: CommentNode[], me?: string): boolean => !!me && nodes.some((x) => x.comment.authorId === me || involves(x.children, me));
 
 type TreeCtx = {
-  highlight: string | null; onTargetLayout?: (view: HostView) => void;
+  highlight: string | null; onTargetLayout?: (view: HostView) => void; firstId: string | null;
   open: Record<string, boolean>; setOpen: (id: string, v: boolean) => void; me?: string; pseudoOf: (id: string) => string | undefined;
   row: Pick<RowProps, 'onReply' | 'onMore' | 'onDelete' | 'onSticker'>;
 };
@@ -116,7 +123,7 @@ function Node({ node, depth, parent, ctx }: { node: CommentNode; depth: number; 
     <View>
       <CommentRow c={c} reply={depth > 0} showReplyTo={showReplyTo} replyCount={countAll(kids)} collapsed={collapsed}
         onToggle={() => ctx.setOpen(c.id, collapsed)} {...ctx.row}
-        highlighted={ctx.highlight === c.id} onTargetLayout={ctx.onTargetLayout} />
+        highlighted={ctx.highlight === c.id} onTargetLayout={ctx.onTargetLayout} first={ctx.firstId === c.id} />
       {(shown.length > 0 || hidden > 0) && (
         // Trait de rattachement : il descend sous l'avatar du commentaire, le long de ses réponses.
         <View style={{ marginLeft: depth === 0 ? 17 : 13, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: colors.line, marginTop: space.sm, gap: space.md }}>
@@ -138,8 +145,10 @@ function Node({ node, depth, parent, ctx }: { node: CommentNode; depth: number; 
  * secondes et `onTarget(view)` permet à l'écran d'y défiler. Introuvable une fois la liste chargée (`loaded`) :
  * `onTargetMissing()` (commentaire supprimé ou masqué).
  */
-export function CommentThreads({ badingId, onReply, target, loaded = true, onTarget, onTargetMissing }: {
+export function CommentThreads({ badingId, onReply, target, loaded = true, onTarget, onTargetMissing, onFirstComment }: {
   badingId: string; onReply: (c: Comment) => void;
+  /** Bouton de l'état vide (pas encore de commentaire) : ouvre la saisie. */
+  onFirstComment?: () => void;
   target?: string; loaded?: boolean; onTarget?: (view: HostView) => void; onTargetMissing?: () => void;
 }) {
   const { commentTree, comments, session, removeComment, reportComment, myStickers, saveSticker, customStickers, users } = useStore();
@@ -150,6 +159,13 @@ export function CommentThreads({ badingId, onReply, target, loaded = true, onTar
   const [menu, setMenu] = useState<Comment | null>(null);
   const [confirm, setConfirm] = useState<Comment | null>(null);
   const tree = commentTree(badingId);
+  // Premier commentaire encore visible (le plus ancien, réponses comprises) : il porte la médaille.
+  const firstId = useMemo(() => {
+    let first: Comment | null = null;
+    const walk = (nodes: CommentNode[]) => nodes.forEach((n) => { if (!first || n.comment.createdAt < first.createdAt) first = n.comment; walk(n.children); });
+    walk(tree);
+    return (first as Comment | null)?.id ?? null;
+  }, [tree]);
   const [highlight, setHighlight] = useState<string | null>(null);
   const targetDone = useRef(false);
   const scrolled = useRef(false);
@@ -177,7 +193,7 @@ export function CommentThreads({ badingId, onReply, target, loaded = true, onTar
 
 
   const ctx: TreeCtx = {
-    highlight,
+    highlight, firstId,
     // Une seule fois : défiler jusqu'au commentaire ciblé quand il est en place.
     onTargetLayout: (view) => { if (!scrolled.current) { scrolled.current = true; onTarget?.(view); } },
     open, setOpen: (id, v) => setOpenState((o) => ({ ...o, [id]: v })), me: session?.user.id,
@@ -187,9 +203,11 @@ export function CommentThreads({ badingId, onReply, target, loaded = true, onTar
 
   if (tree.length === 0) {
     return (
-      <View style={{ padding: space.xl, alignItems: 'center', gap: 6 }}>
-        <AppText variant="heading">Pas encore de commentaire</AppText>
-        <AppText variant="body" color={colors.text2} style={{ textAlign: 'center' }}>Lance la discussion, dis ce que ça t'a fait.</AppText>
+      <View style={{ padding: space.xl, alignItems: 'center', gap: 8 }}>
+        <AppText style={{ fontSize: 34, lineHeight: 40 }} accessibilityElementsHidden>🥇</AppText>
+        <AppText variant="heading" style={{ textAlign: 'center' }}>Personne n'a encore commenté</AppText>
+        <AppText variant="body" color={colors.text2} style={{ textAlign: 'center' }}>Sois le premier à réagir : le premier commentaire porte la médaille.</AppText>
+        {onFirstComment && <Button label="Écrire le premier commentaire" size="md" onPress={onFirstComment} style={{ marginTop: space.sm }} />}
       </View>
     );
   }

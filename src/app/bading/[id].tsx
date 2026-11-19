@@ -154,7 +154,8 @@ export default function BadingDetail() {
         </View>
         {tab === 'comments' ? (
           <CommentThreads badingId={b.id} onReply={(c) => composer.current?.replyTo(c)}
-            target={comment} loaded={load.state !== 'loading'} onTarget={scrollToComment} onTargetMissing={onCommentMissing} />
+            target={comment} loaded={load.state !== 'loading'} onTarget={scrollToComment} onTargetMissing={onCommentMissing}
+            onFirstComment={() => composer.current?.focus()} />
         ) : rebades.length ? (
           rebades.map((r) => <BadingCard key={r.id} b={r} onMore={open} />)
         ) : (
