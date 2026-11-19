@@ -67,7 +67,8 @@ export default function Notifications() {
             <Animated.View entering={FadeInDown.duration(300).delay(index * 40)}>
               <Pressable
                 disabled={!!team && !n.badingId}
-                onPress={() => (n.badingId ? router.push(`/bading/${n.badingId}`) : router.push('/settings'))}
+                // Commentaire, réponse, mention dans un commentaire : le bading s'ouvre sur ce commentaire précis.
+                onPress={() => (n.badingId ? router.push(n.commentId ? `/bading/${n.badingId}?comment=${n.commentId}` : `/bading/${n.badingId}`) : router.push('/settings'))}
                 style={({ pressed }) => ({ flexDirection: 'row', gap: space.md, padding: space.lg, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: pressed ? colors.surface : n.read ? colors.bg : 'rgba(152,16,230,0.07)' })}>
                 <View style={{ width: 44, alignItems: 'flex-end' }}>
                   <Icon size={26} color={(n.kind === 'badge' && n.badgeStatus === 'refused') ? colors.text2 : colors.brandInk} />

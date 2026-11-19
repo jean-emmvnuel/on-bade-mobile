@@ -74,6 +74,8 @@ export type AppNotification = {
   badingId?: string;
   /** accepted = demande validée, granted = badge attribué directement par l'admin, refused = demande refusée. */
   badgeStatus?: 'accepted' | 'granted' | 'refused';
+  /** Commentaire concerné (commentaire, réponse, mention dans un commentaire) : la notification l'ouvre. */
+  commentId?: string;
   /** Messages de l'équipe : titre (facultatif) et texte. */
   title?: string;
   body?: string;

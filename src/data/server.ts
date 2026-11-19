@@ -112,6 +112,7 @@ export function fromServerNotification(n: any, ids: IdMapper): AppNotification {
   };
   if (n.others) out.others = n.others;
   if (n.badingId) out.badingId = n.badingId;
+  if (n.commentId) out.commentId = n.commentId;
   if (n.badgeStatus) out.badgeStatus = n.badgeStatus;
   if (n.title) out.title = n.title;
   if (n.body) out.body = n.body;

@@ -1,6 +1,6 @@
 // Fil de commentaires d'un bading : arbre sur 4 niveaux, repli des réponses, menus (signaler, supprimer, stickers).
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
@@ -8,7 +8,10 @@ import { compact, descendantIds, MAX_MY_STICKERS, timeAgo, useStore, type Commen
 import { getSticker } from '@/data/stickers';
 import { errorMessage } from '@/lib/api';
 import type { Comment } from '@/data/types';
-import { colors, space } from '@/theme/tokens';
+
+/** Élément affiché (sa position à l'écran sert à défiler jusqu'au commentaire ciblé). */
+export type HostView = React.ComponentRef<typeof View>;
+import { colors, radius, space } from '@/theme/tokens';
 
 import { AppText } from './AppText';
 import { Avatar } from './Avatar';
@@ -25,16 +28,21 @@ import { Verified } from './Verified';
 const PREVIEW_REPLIES = 2;
 
 type RowProps = {
+  /** Commentaire ouvert depuis une notification : encadré, et sa position est donnée à l'écran pour y défiler. */
+  highlighted?: boolean; onTargetLayout?: (view: HostView) => void;
   c: Comment; reply?: boolean; showReplyTo?: boolean; replyCount?: number; collapsed?: boolean; onToggle?: () => void;
   onReply: (c: Comment) => void; onMore: (c: Comment) => void; onDelete: (c: Comment) => void; onSticker: (id: string) => void;
 };
 
-function CommentRow({ c, reply, showReplyTo, replyCount = 0, collapsed, onToggle, onReply, onMore, onDelete, onSticker }: RowProps) {
+function CommentRow({ c, reply, showReplyTo, replyCount = 0, collapsed, onToggle, onReply, onMore, onDelete, onSticker, highlighted, onTargetLayout }: RowProps) {
+  const rowRef = useRef<HostView>(null);
   const { users, toggleCommentLike, session } = useStore();
   const mine = c.authorId === session?.user.id;
   const u = users[c.authorId];
   return (
-    <Animated.View entering={FadeIn.duration(240)} layout={LinearTransition} style={{ flexDirection: 'row', gap: space.md }}>
+    <Animated.View ref={rowRef} entering={FadeIn.duration(240)} layout={LinearTransition}
+      onLayout={highlighted && onTargetLayout ? () => { if (rowRef.current) onTargetLayout(rowRef.current); } : undefined}
+      style={[{ flexDirection: 'row', gap: space.md }, highlighted && { margin: -6, padding: 6, borderRadius: radius.md, borderWidth: 2, borderColor: colors.brandInk, backgroundColor: colors.brandSoft }]}>
       <Pressable onPress={() => onMore(c)} onLongPress={() => onMore(c)} accessibilityLabel={`Profil de ${u?.pseudo}`}>
         <Avatar user={u ?? null} size={reply ? 28 : 36} />
       </Pressable>
@@ -89,6 +97,7 @@ const countAll = (nodes: CommentNode[]): number => nodes.reduce((n, x) => n + 1 
 const involves = (nodes: CommentNode[], me?: string): boolean => !!me && nodes.some((x) => x.comment.authorId === me || involves(x.children, me));
 
 type TreeCtx = {
+  highlight: string | null; onTargetLayout?: (view: HostView) => void;
   open: Record<string, boolean>; setOpen: (id: string, v: boolean) => void; me?: string; pseudoOf: (id: string) => string | undefined;
   row: Pick<RowProps, 'onReply' | 'onMore' | 'onDelete' | 'onSticker'>;
 };
@@ -106,7 +115,8 @@ function Node({ node, depth, parent, ctx }: { node: CommentNode; depth: number; 
   return (
     <View>
       <CommentRow c={c} reply={depth > 0} showReplyTo={showReplyTo} replyCount={countAll(kids)} collapsed={collapsed}
-        onToggle={() => ctx.setOpen(c.id, collapsed)} {...ctx.row} />
+        onToggle={() => ctx.setOpen(c.id, collapsed)} {...ctx.row}
+        highlighted={ctx.highlight === c.id} onTargetLayout={ctx.onTargetLayout} />
       {(shown.length > 0 || hidden > 0) && (
         // Trait de rattachement : il descend sous l'avatar du commentaire, le long de ses réponses.
         <View style={{ marginLeft: depth === 0 ? 17 : 13, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: colors.line, marginTop: space.sm, gap: space.md }}>
@@ -123,7 +133,15 @@ function Node({ node, depth, parent, ctx }: { node: CommentNode; depth: number; 
 }
 
 /** Fils de commentaires en arbre sur 4 niveaux (comme le site) ; plus bas, les réponses se rangent au 4ᵉ niveau. */
-export function CommentThreads({ badingId, onReply }: { badingId: string; onReply: (c: Comment) => void }) {
+/**
+ * `target` : commentaire ouvert depuis une notification. Ses commentaires parents sont dépliés, il est encadré quelques
+ * secondes et `onTarget(view)` permet à l'écran d'y défiler. Introuvable une fois la liste chargée (`loaded`) :
+ * `onTargetMissing()` (commentaire supprimé ou masqué).
+ */
+export function CommentThreads({ badingId, onReply, target, loaded = true, onTarget, onTargetMissing }: {
+  badingId: string; onReply: (c: Comment) => void;
+  target?: string; loaded?: boolean; onTarget?: (view: HostView) => void; onTargetMissing?: () => void;
+}) {
   const { commentTree, comments, session, removeComment, reportComment, myStickers, saveSticker, customStickers, users } = useStore();
   const toast = useToast();
   const [stickerMenu, setStickerMenu] = useState<string | null>(null);
@@ -132,10 +150,36 @@ export function CommentThreads({ badingId, onReply }: { badingId: string; onRepl
   const [menu, setMenu] = useState<Comment | null>(null);
   const [confirm, setConfirm] = useState<Comment | null>(null);
   const tree = commentTree(badingId);
+  const [highlight, setHighlight] = useState<string | null>(null);
+  const targetDone = useRef(false);
+  const scrolled = useRef(false);
+  useEffect(() => {
+    if (!target || targetDone.current) return;
+    const byId = new Map(comments.filter((x) => x.badingId === badingId && !x.deleted).map((x) => [x.id, x]));
+    const found = byId.get(target);
+    if (!found) {
+      if (loaded) { targetDone.current = true; onTargetMissing?.(); }
+      return;
+    }
+    targetDone.current = true;
+    const ancestors: string[] = [];
+    for (let p = found.parentId ? byId.get(found.parentId) : undefined; p; p = p.parentId ? byId.get(p.parentId) : undefined) ancestors.push(p.id);
+    setOpenState((o) => ({ ...o, ...Object.fromEntries(ancestors.map((a) => [a, true])) }));
+    setHighlight(target);
+  }, [target, comments, badingId, loaded, onTargetMissing]);
+  // L'encadré s'efface après quelques secondes.
+  useEffect(() => {
+    if (!highlight) return;
+    const t = setTimeout(() => setHighlight(null), 4000);
+    return () => clearTimeout(t);
+  }, [highlight]);
   const confirmHasReplies = !!confirm && [...descendantIds(comments, confirm.id)].some((id) => comments.some((c) => c.id === id && !c.deleted));
 
 
   const ctx: TreeCtx = {
+    highlight,
+    // Une seule fois : défiler jusqu'au commentaire ciblé quand il est en place.
+    onTargetLayout: (view) => { if (!scrolled.current) { scrolled.current = true; onTarget?.(view); } },
     open, setOpen: (id, v) => setOpenState((o) => ({ ...o, [id]: v })), me: session?.user.id,
     pseudoOf: (id) => users[id]?.pseudo,
     row: { onReply, onMore: setMenu, onDelete: setConfirm, onSticker: setStickerMenu },

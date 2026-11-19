@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ellipsis, MessageCircle, Repeat2, Share2 } from '@/components/icons';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
@@ -13,17 +13,20 @@ import { Button } from '@/components/Button';
 import { ImageViewer } from '@/components/ImageViewer';
 import { Bubble } from '@/components/Bubble';
 import { CommentComposer, CommentThreads, type ComposerHandle } from '@/components/Comments';
+import type { HostView } from '@/components/CommentThreads';
 import { LaughButton } from '@/components/LaughButton';
 import { RichText } from '@/components/RichText';
 import { BadingImage } from '@/components/BadingImage';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Verified } from '@/components/Verified';
+import { useToast } from '@/components/Toast';
 import { compact, displayName, useStore } from '@/data/store';
 import { errorMessage } from '@/lib/api';
 import { colors, space } from '@/theme/tokens';
 
 export default function BadingDetail() {
-  const { id, focus } = useLocalSearchParams<{ id: string; focus?: string }>();
+  // `comment` : ouvert depuis une notification de commentaire, de réponse ou de mention → on montre ce commentaire.
+  const { id, focus, comment } = useLocalSearchParams<{ id: string; focus?: string; comment?: string }>();
   const { getBading, loadBading, users, feed, toggleLike, pendingLink, setPendingLink, commentCount, simulateReply, addView, session } = useStore();
   // Le bading, ses commentaires et ses rebades viennent du serveur ; la version en cache s'affiche en attendant.
   const [load, setLoad] = useState<{ state: 'loading' | 'ok' | 'missing' | 'error'; message?: string }>({ state: 'loading' });
@@ -44,6 +47,19 @@ export default function BadingDetail() {
   }, [id, getBading, addView, session]);
   const composer = useRef<ComposerHandle>(null);
   const scroller = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const scrollY = useRef(0);
+  const toast = useToast();
+  /** Défile jusqu'au commentaire ciblé (un peu sous le haut de l'écran), une fois les réponses dépliées. */
+  const scrollToComment = useCallback((view: HostView) => {
+    setTimeout(() => {
+      view.measure((_x, _y, _w, _h, _px, rowY) => {
+        (scroller.current as unknown as HostView | null)?.measure((_a, _b, _c, _d, _e, top) => {
+          scroller.current?.scrollTo({ y: Math.max(0, scrollY.current + rowY - top - 140), animated: true });
+        });
+      });
+    }, 250);
+  }, []);
+  const onCommentMissing = useCallback(() => toast('Ce commentaire a été supprimé.'), [toast]);
   const [tab, setTab] = useState<'comments' | 'rebades'>('comments');
   const [zoom, setZoom] = useState(false);
   useEffect(() => {
@@ -105,7 +121,8 @@ export default function BadingDetail() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScreenHeader title="Bading" right={<Pressable onPress={() => open(b)} accessibilityRole="button" accessibilityLabel="Plus d'options" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}><Ellipsis size={20} color={colors.text2} /></Pressable>} />
-      <ScrollView ref={scroller} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: space.xl }}>
+      <ScrollView ref={scroller} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: space.xl }}
+        scrollEventThrottle={64} onScroll={(e) => { scrollY.current = e.nativeEvent.contentOffset.y; }}>
         <Animated.View entering={FadeIn.duration(260)} style={{ padding: space.md, paddingBottom: space.xl }}>
          <Bubble anonymous={!!b.anonymous} style={{ padding: space.lg, paddingBottom: space.sm, gap: space.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
@@ -136,7 +153,8 @@ export default function BadingDetail() {
           <Tab k="rebades" label={`Rebades avec avis${rebades.length ? ` · ${rebades.length}` : ''}`} />
         </View>
         {tab === 'comments' ? (
-          <CommentThreads badingId={b.id} onReply={(c) => composer.current?.replyTo(c)} />
+          <CommentThreads badingId={b.id} onReply={(c) => composer.current?.replyTo(c)}
+            target={comment} loaded={load.state !== 'loading'} onTarget={scrollToComment} onTargetMissing={onCommentMissing} />
         ) : rebades.length ? (
           rebades.map((r) => <BadingCard key={r.id} b={r} onMore={open} />)
         ) : (
