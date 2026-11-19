@@ -4,6 +4,7 @@ import { PSEUDO_RULES, pseudoFormatError } from '@/lib/pseudo';
 import { fromServerBading, fromServerComment, fromServerNotification, fromServerSticker, fromServerUser, idMapper, pruneFeed } from '@/data/server';
 import { ME_ID } from '@/data/seed';
 import { momentOf, withPinsFirst } from '@/data/store';
+import { feedWindow } from '@/data/feed';
 import type { Bading } from '@/data/types';
 
 const ids = idMapper('srv-me');
@@ -140,5 +141,13 @@ describe('Mon profil : prénom, nom et délai du pseudo', () => {
     const other = fromServerUser({ id: 'srv-2', username: 'autre', firstName: 'X' }, ids);
     expect(other.firstName).toBeUndefined();
     expect(other.pseudoChangeableAt).toBeUndefined();
+  });
+});
+
+describe('Fil par pages', () => {
+  it('seules les pages chargées sont affichées ; un épinglé plus ancien reste', () => {
+    const feed = [{ id: 'a', createdAt: 300 }, { id: 'b', createdAt: 200 }, { id: 'old', createdAt: 50 }, { id: 'pin', createdAt: 10 }];
+    expect(feedWindow(feed, { from: 200, hasMore: true }, new Set(['pin'])).map((b) => b.id)).toEqual(['a', 'b', 'pin']);
+    expect(feedWindow(feed, { from: null, hasMore: false }, new Set())).toHaveLength(4);
   });
 });

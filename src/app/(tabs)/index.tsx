@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import Animated, {
   FadeInDown,
   useAnimatedScrollHandler,
@@ -21,6 +21,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { useToast } from '@/components/Toast';
 import { useStore, withPinsFirst } from '@/data/store';
+import { feedWindow } from '@/data/feed';
 import { errorMessage } from '@/lib/api';
 import type { Bading } from '@/data/types';
 import { useReduceTransparency } from '@/lib/motion';
@@ -45,12 +46,34 @@ function Skeleton() {
   );
 }
 
+/** Bas du fil : loader pendant le chargement des 20 suivants, réessai si le réseau a lâché, ou fin du fil. */
+function FeedEnd({ state, hasMore, onRetry }: { state: 'idle' | 'loading' | 'error'; hasMore: boolean; onRetry: () => void }) {
+  if (!hasMore) {
+    return <AppText variant="meta" color={colors.text2} style={{ textAlign: 'center', paddingVertical: space.xl, paddingHorizontal: space.lg }}>Tu as tout vu. Reviens plus tard pour de nouveaux badings 😄</AppText>;
+  }
+  if (state === 'error') {
+    return <View style={{ alignItems: 'center', paddingVertical: space.xl }}><Button label="Pas de réseau · Réessayer" kind="secondary" size="md" onPress={onRetry} /></View>;
+  }
+  return (
+    <View accessibilityRole="progressbar" accessibilityLabel="Chargement des badings suivants" style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, paddingVertical: space.xl, minHeight: 80 }}>
+      <ActivityIndicator color={colors.brandInk} />
+      <AppText variant="meta" color={colors.text2}>On ramène les badings suivants…</AppText>
+    </View>
+  );
+}
+
 export default function Feed() {
   const insets = useSafeAreaInsets();
   const reduce = useReducedMotion();
-  const { feed, pins, loadFeed, refreshFeed } = useStore();
-  // Badings épinglés par l'équipe : tout en haut du fil.
-  const data = useMemo(() => withPinsFirst(feed, pins), [feed, pins]);
+  const { feed, pins, loadFeed, refreshFeed, feedPaging, loadMoreFeed } = useStore();
+  // Badings épinglés par l'équipe : tout en haut du fil. Le fil arrive par pages de 20 (la suite en arrivant en bas).
+  const data = useMemo(() => withPinsFirst(feedWindow(feed, feedPaging, new Set(pins.map((p) => p.id))), pins), [feed, pins, feedPaging]);
+  const [more, setMore] = useState<'idle' | 'loading' | 'error'>('idle');
+  const loadMore = useCallback(() => {
+    if (more === 'loading' || !feedPaging.hasMore) return;
+    setMore('loading');
+    loadMoreFeed().then(() => setMore('idle'), () => setMore('error'));
+  }, [more, feedPaging.hasMore, loadMoreFeed]);
   const pinLabel = useMemo(() => new Map(pins.map((p) => [p.id, p.label ?? ''])), [pins]);
   const toast = useToast();
   const { open, sheet } = useBadingActions();
@@ -131,6 +154,10 @@ export default function Feed() {
           overScrollMode="never"
           initialNumToRender={8}
           windowSize={7}
+          // Suite du fil : demandée à ~1,5 écran du bas, avec un loader sous les derniers badings.
+          onEndReached={loadMore}
+          onEndReachedThreshold={1.5}
+          ListFooterComponent={data.length ? <FeedEnd state={more} hasMore={feedPaging.hasMore} onRetry={loadMore} /> : undefined}
           ListEmptyComponent={
             loadError ? (
               <View style={{ padding: space.xxl, gap: space.lg, alignItems: 'flex-start' }}>

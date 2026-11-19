@@ -16,3 +16,12 @@ export function withPinsFirst(feed: Bading[], pins: Pin[]) {
 export function momentOf(feed: Bading[], limit = 20) {
   return feed.filter((b) => !b.rebadeOf).sort((a, b) => (b.likes - a.likes) || (b.createdAt - a.createdAt)).slice(0, limit);
 }
+
+/** Partie du fil chargée pendant cette visite (fil par pages de 20). */
+export type FeedPaging = { from: number | null; hasMore: boolean; nextBefore?: number };
+
+/** Le fil affiché : seulement les pages chargées (`from`), épinglés compris même plus anciens. */
+export function feedWindow<T extends { id: string; createdAt: number }>(feed: T[], paging: FeedPaging, pinnedIds: Set<string>): T[] {
+  const from = paging.from;
+  return from == null ? feed : feed.filter((b) => b.createdAt >= from || pinnedIds.has(b.id));
+}

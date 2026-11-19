@@ -20,7 +20,7 @@ import { notifyLocal, registerForPush, type PushStatus } from '@/lib/notificatio
 import type { AppNotification, Bading, BadingImage, Comment, CustomSticker, MentionPolicy, User, VoiceRecording } from './types';
 import { BANNED, MAX_MY_STICKERS, RULES, countMentions, validateBading, type PublishError } from './rules';
 import { buildTree, descendantIds, groupThreads, type CommentNode } from './comments';
-import { momentOf, withPinsFirst, type Pin } from './feed';
+import { momentOf, withPinsFirst, type FeedPaging, type Pin } from './feed';
 import { uid } from './format';
 
 // Modules extraits, réexportés ici : les écrans continuent d'importer depuis « @/data/store ».
@@ -104,6 +104,10 @@ type Store = {
   setPhoto: (uri: string | null) => Promise<void>;
   /** Charge le fil depuis le serveur. */
   loadFeed: () => Promise<void>;
+  /** Partie du fil chargée pendant cette visite : `from` = plus ancien bading chargé (null = tout), `hasMore` = il en reste. */
+  feedPaging: FeedPaging;
+  /** Page suivante du fil (en arrivant en bas) ; renvoie le nombre de badings ajoutés. */
+  loadMoreFeed: () => Promise<number>;
   /** Récupère les badings publiés depuis le dernier chargement ; renvoie leur nombre. */
   refreshFeed: () => Promise<number>;
   /** Charge un bading, ses commentaires et ses rebades avec avis. */
@@ -196,6 +200,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<Record<string, User>>(() => (USE_BACKEND ? {} : Object.fromEntries(seedUsers.map((u) => [u.id, u]))));
   // Vues de démo proportionnelles aux rires (un bading est lu bien plus souvent qu'il ne fait rire).
   const [pins, setPins] = useState<Pin[]>([]);
+  const [feedPaging, setFeedPaging] = useState<FeedPaging>({ from: null, hasMore: false });
+  const paging = useRef(feedPaging);
+  paging.current = feedPaging;
   const [feed, setFeed] = useState<Bading[]>(() => (USE_BACKEND ? [] : [...seedMyBadings, ...seedBadings].map((b) => ({ ...b, views: b.views ?? Math.round(b.likes * 6.3 + 41) }))));
   const [notifications, setNotifications] = useState<AppNotification[]>(USE_BACKEND ? [] : seedNotifications);
   const [draft, setDraft] = useState<Draft>({ text: '', anonymous: false, image: null });
@@ -512,15 +519,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const loadFeed = useCallback(async () => {
     if (!USE_BACKEND) return;
-    const { badings = [], origins = [], users: people = [], pinned = [] } = await api.getFeed();
+    const { badings = [], origins = [], users: people = [], pinned = [], hasMore = false, nextBefore } = await api.getFeed();
     mergeUsers(people);
     const map = ids();
     const received = badings.map((b: any) => fromServerBading(b, map));
     const keep = new Set([...live.current.favorites, ...live.current.feed.filter((b) => b.authorId === ME_ID).map((b) => b.id)]);
     setFeed((f) => pruneFeed(f, received, api.FEED_PAGE_SIZE, keep));
     mergeBadings([...badings, ...origins, ...pinned]);
+    // Fil affiché : la première page (déjà plus loin pendant cette visite : on garde ce qui était chargé).
+    const pageFrom = received.length ? Math.min(...received.map((b: Bading) => b.createdAt)) : Infinity;
+    setFeedPaging((p) => (p.from == null || pageFrom < p.from
+      ? { from: pageFrom, hasMore: !!hasMore, nextBefore }
+      : { ...p, hasMore: p.hasMore && !!hasMore }));
     // Épingles : seulement dans la première page du fil ; une épingle retirée disparaît au prochain chargement.
     setPins(pinned.filter(Boolean).map((b: any) => ({ id: b.id, ...(b.pinnedLabel ? { label: b.pinnedLabel } : {}) })));
+  }, [mergeUsers, mergeBadings]);
+
+  const loadingMore = useRef<Promise<number> | null>(null);
+  const loadMoreFeed = useCallback(() => {
+    const { hasMore, nextBefore, from } = paging.current;
+    if (!USE_BACKEND || !hasMore || from == null) return Promise.resolve(0);
+    loadingMore.current ??= (async () => {
+      try {
+        const before = nextBefore ?? from;
+        const page = await api.getFeedPage(before);
+        const list: any[] = page.badings ?? [];
+        mergeUsers(page.users ?? []);
+        const map = ids();
+        const received = list.map((b) => fromServerBading(b, map));
+        const returned = new Set(received.map((b) => b.id));
+        const oldest = received.length ? Math.min(...received.map((b) => b.createdAt)) : from;
+        const lowest = page.hasMore ? oldest : -Infinity;
+        const keep = new Set([...live.current.favorites, ...received.map((b) => b.rebadeOf).filter(Boolean) as string[]]);
+        // Dans la tranche de dates de cette page : un bading du cache que le serveur n'a pas renvoyé n'existe plus.
+        setFeed((f) => f.filter((b) => returned.has(b.id) || keep.has(b.id) || b.authorId === ME_ID || b.createdAt >= before || b.createdAt < lowest));
+        mergeBadings([...list, ...(page.origins ?? [])]);
+        setFeedPaging({ from: oldest, hasMore: !!page.hasMore, nextBefore: page.nextBefore });
+        return received.length;
+      } finally {
+        loadingMore.current = null;
+      }
+    })();
+    return loadingMore.current;
   }, [mergeUsers, mergeBadings]);
 
   const incoming = useRef([...incomingBadings]);
@@ -965,6 +1005,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       session,
       users,
       feed: sortedFeed,
+      feedPaging,
+      loadMoreFeed,
       pins,
       notifications,
       draft,
@@ -1038,7 +1080,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPendingLink,
       searchPseudos,
     }),
-    [ready, onboarded, session, users, sortedFeed, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, markRead, setMentionPolicy, requestBadge, comments, commentsFor, commentTree, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, changeName, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
+    [ready, onboarded, session, users, sortedFeed, feedPaging, loadMoreFeed, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, markRead, setMentionPolicy, requestBadge, comments, commentsFor, commentTree, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, changeName, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -199,8 +199,10 @@ export const isPseudoAvailable = (pseudo: string) => get<{ available: boolean }>
 export const requestPasswordReset = (email: string) => post('/password-reset', { email });
 
 // Badings
-export const FEED_PAGE_SIZE = 50;
-export const getFeed = (since?: number) => get('/feed', { since, limit: FEED_PAGE_SIZE });
+// Le fil arrive par pages de 20 : la première au chargement, les suivantes en arrivant en bas (getFeedPage).
+export const FEED_PAGE_SIZE = 20;
+export const getFeed = (since?: number) => get('/feed', { since, limit: FEED_PAGE_SIZE }); // → { badings, …, hasMore, nextBefore }
+export const getFeedPage = (before: number) => get('/feed', { before, limit: FEED_PAGE_SIZE });
 export const getBading = (badingId: string) => get(`/badings/${id(badingId)}`);
 export const createBading = (b: { text: string; anonymous: boolean; image: { dataUrl: string; ratio: number } | null }) => post('/badings', b);
 export const addBadingView = (badingId: string) => post(`/badings/${id(badingId)}/views`);
