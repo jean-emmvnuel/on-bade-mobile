@@ -40,6 +40,23 @@ export function BadeScore({ score, mine = false }: { score?: Score; mine?: boole
             <View style={{ width: `${Math.round(progress * 100)}%`, height: '100%', borderRadius: 3, backgroundColor: colors.brandInk }} />
           </View>
           <AppText variant="small" color={colors.text2}>{score.next ? `${mine ? 'Encore' : 'Plus que'} ${left} point${left > 1 ? 's' : ''} pour ${score.nextLevel}` : 'Niveau maximum atteint 👑'}</AppText>
+          {/* Tous les rangs : atteints (✓), actuel (mis en avant), à atteindre (grisés, avec le score demandé). */}
+          {score.levels?.map((l, i) => {
+            const state = i < score.levelIndex ? 'done' : i === score.levelIndex ? 'now' : 'next';
+            return (
+              <View key={l.name} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.md,
+                ...(state === 'now' ? { backgroundColor: colors.brandSoft, borderWidth: 1.5, borderColor: colors.brandInk } : {}) }}>
+                <AppText style={{ fontSize: 18, width: 24, textAlign: 'center', opacity: state === 'next' ? 0.45 : 1 }}>{LEVEL_EMOJI[i] ?? '🔥'}</AppText>
+                <View style={{ flex: 1 }}>
+                  <AppText variant="label" color={state === 'next' ? colors.text3 : colors.text}>{l.name}</AppText>
+                  {state === 'now' && <AppText variant="small" color={colors.brandInk}>{mine ? 'Ton rang' : 'Son rang'}</AppText>}
+                </View>
+                <AppText variant="small" color={state === 'done' ? colors.success : colors.text3} style={state === 'done' ? { fontFamily: fonts.bodyBold } : undefined}>
+                  {state === 'done' ? '✓' : l.min ? `${l.min.toLocaleString('fr-FR')} pts` : 'Au départ'}
+                </AppText>
+              </View>
+            );
+          })}
           <AppText variant="bodyStrong">{mine ? 'Ton' : 'Le'} BadeScore vient de l’engouement autour {mine ? 'de tes' : 'de ses'} badings : les rires, les commentaires, les partages et les rebades qu’ils reçoivent.</AppText>
           {USED.map((what) => <AppText key={what} variant="body"><AppText variant="bodyStrong" color={colors.brandInk}>•</AppText>  {what}</AppText>)}
           <AppText variant="body" color={colors.text2}>Depuis {mine ? 'ton' : 'son'} arrivée sur On Bade.</AppText>

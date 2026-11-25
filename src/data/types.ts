@@ -15,7 +15,7 @@ export type User = {
   badeScore?: BadeScore;
 };
 
-export type BadeScore = { score: number; level: string; levelIndex: number; from: number; next: number | null; nextLevel: string | null };
+export type BadeScore = { score: number; level: string; levelIndex: number; from: number; next: number | null; nextLevel: string | null; levels?: { name: string; min: number }[] };
 
 /** Image d'un bading, déjà recadrée et compressée (F1 RG2). */
 export type BadingImage = { uri: string; width: number; height: number };
