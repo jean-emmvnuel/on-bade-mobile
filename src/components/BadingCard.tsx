@@ -126,6 +126,10 @@ export const BadingCard = memo(function BadingCard({ b, onMore, pin }: { b: Badi
             </View>
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            {/* Auteur signé : son profil au toucher (jamais pour un bading anonyme) */}
+            <Pressable disabled={anon || !author} onPress={() => author && router.push({ pathname: '/u/[id]', params: { id: author.id } })}
+              accessibilityRole={anon ? undefined : 'link'} accessibilityLabel={anon ? undefined : `Profil de ${n.name}`}
+              style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Avatar user={author} size={40} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -134,6 +138,7 @@ export const BadingCard = memo(function BadingCard({ b, onMore, pin }: { b: Badi
               </View>
               <AppText variant="meta" color={colors.text3} numberOfLines={1}>{n.handle && !anon ? `${n.handle} · ` : ''}{timeAgo(actionTarget.createdAt)}</AppText>
             </View>
+            </Pressable>
             {onMore && (
               <Pressable onPress={() => onMore(actionTarget)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Plus d'options" style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
                 <Ellipsis size={18} color={colors.text3} />

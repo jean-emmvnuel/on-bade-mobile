@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Pressable } from 'react-native';
+import { Search } from '@/components/icons';
 import Animated, {
   FadeInDown,
   useAnimatedScrollHandler,
@@ -186,6 +187,9 @@ export default function Feed() {
             <LogoMark size={28} />
             <AppText variant="heading" style={{ fontSize: 22 }} accessibilityRole="header">On Bade</AppText>
           </View>
+          <Pressable onPress={() => router.push('/search')} accessibilityRole="button" accessibilityLabel="Rechercher" hitSlop={6} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Search size={22} color={colors.text} />
+          </Pressable>
           <NotificationBell />
         </Animated.View>
       </Animated.View>

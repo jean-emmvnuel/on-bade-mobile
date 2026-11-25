@@ -31,7 +31,7 @@ function LiveFire({ lit }: { lit: boolean }) {
 
 export function Flames({ flames, mine = false }: { flames?: FlamesData; mine?: boolean }) {
   if (!flames) return null;
-  const { streak, today, seasonDays, record, totalDays, seasonRank, season } = flames;
+  const { streak, today, seasonDays, record, totalDays, seasonRank, season, champion } = flames;
   const left = season.length - season.day;
   const Stat = ({ label, value, unit }: { label: string; value: string; unit: string }) => (
     <View style={{ flex: 1, padding: 8, borderRadius: radius.md, backgroundColor: 'rgba(0,0,0,0.18)', gap: 2 }}>
@@ -47,6 +47,12 @@ export function Flames({ flames, mine = false }: { flames?: FlamesData; mine?: b
         <AppText variant="body" color={colors.text2}><AppText style={{ fontFamily: fonts.display, fontSize: 24, color: colors.text }}>{streak}</AppText> flamme{streak > 1 ? 's' : ''}</AppText>
         <AppText variant="small" color="#FFB066" style={{ marginLeft: 'auto', fontFamily: fonts.bodyBold }}>{seasonRank ? `${seasonRank}e de la saison` : 'Pas encore classé'}</AppText>
       </View>
+      {champion ? (
+        <AppText variant="label" color="#FFD166" accessibilityLabel={`Champion de la saison ${champion.season}`}>
+          👑 Champion de la saison {champion.season}
+          <AppText variant="small" color={colors.text2}>  · {mine ? 'ton badge' : 'badge'} jusqu’au {new Date(`${champion.until}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</AppText>
+        </AppText>
+      ) : null}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         <AppText variant="small" style={{ fontFamily: fonts.bodyBold }}>Saison {season.number} · jour {season.day}/{season.length}</AppText>
         <AppText variant="small" color={colors.text2}>{left > 0 ? `encore ${left} jour${left > 1 ? 's' : ''}` : 'dernier jour'}</AppText>

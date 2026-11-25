@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { BadgeCheck, Bell, Check, ChevronRight, CircleX, Copy, IdCard, Lock, LogOut, Trash2, UserRound, UserRoundPen, UserX } from '@/components/icons';
+import { BadgeCheck, Bell, Check, ChevronRight, CircleX, Copy, IdCard, Lock, LogOut, Trash2, UserRound, UserRoundPen, UserX, MessageCircle } from '@/components/icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { useEffect, useState } from 'react';
@@ -51,7 +51,7 @@ const nextChange = (ms: number) => `le ${new Date(ms).toLocaleDateString('fr-FR'
 
 export default function Settings() {
   const toast = useToast();
-  const { session, users, feed, mentionPolicy, setMentionPolicy, badge, requestBadge, signOut, enablePush, blocked, unblock, changePseudo, changeName, deletion, requestDeletion, cancelDeletion, comments, favorites, customStickers, myStickers, notifications, loadSettings, loadExport } = useStore();
+  const { session, users, feed, mentionPolicy, setMentionPolicy, badge, requestBadge, signOut, enablePush, blocked, unblock, changePseudo, changeName, deletion, requestDeletion, cancelDeletion, comments, favorites, customStickers, myStickers, notifications, loadSettings, loadExport, emailNudges, setEmailNudges } = useStore();
   const [busy, setBusy] = useState<string | null>(null);
   const [pseudoTaken, setPseudoTaken] = useState<string | null>(null);
   // Mentions, comptes bloqués, badge et suppression en cours viennent du serveur.
@@ -177,6 +177,16 @@ export default function Settings() {
         </Section>
 
         <Section title="Notifications">
+          <Row
+            icon={<MessageCircle size={22} color={colors.text2} />}
+            label="E-mails « tu nous manques »"
+            detail={emailNudges ? 'Activés · au plus 1 par semaine quand tu ne viens plus' : 'Coupés · touche pour les réactiver'}
+            right={emailNudges ? <Check size={20} color={colors.brandInk} accessibilityLabel="Activés" /> : <View />}
+            onPress={() => setEmailNudges(!emailNudges).then(
+              () => toast(emailNudges ? 'E-mails coupés' : 'E-mails réactivés'),
+              (e) => toast(errorMessage(e, 'Le réglage n’a pas pu être enregistré.')),
+            )}
+          />
           <Row
             icon={<Bell size={22} color={colors.text2} />}
             label="Notifications push"

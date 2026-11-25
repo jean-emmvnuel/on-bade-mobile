@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Pressable } from 'react-native';
 import Animated, { FadeInDown, useAnimatedScrollHandler, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,7 +9,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { BadingCard } from '@/components/BadingCard';
 import { useBadingActions } from '@/components/BadingActions';
 import { Button } from '@/components/Button';
-import { Flame } from '@/components/icons';
+import { Flame, Search } from '@/components/icons';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { useToast } from '@/components/Toast';
 import { momentOf, useStore } from '@/data/store';
@@ -115,6 +115,9 @@ export default function Moment() {
         <View style={{ height: HEADER, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: space.lg }}>
           <Flame size={22} color={colors.brandInk} strokeWidth={2.2} />
           <AppText variant="heading" style={{ fontSize: 22, flex: 1 }} accessibilityRole="header">Badings du moment</AppText>
+          <Pressable onPress={() => router.push('/search')} accessibilityRole="button" accessibilityLabel="Rechercher" hitSlop={6} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Search size={22} color={colors.text} />
+          </Pressable>
           <NotificationBell />
         </View>
       </View>

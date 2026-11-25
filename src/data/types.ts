@@ -20,6 +20,8 @@ export type User = {
 export type Flames = {
   streak: number; today: boolean; seasonDays: number; record: number; totalDays: number; seasonRank: number | null;
   season: { number: number; startsOn: string; endsOn: string; day: number; length: number };
+  /** Badge « 👑 Champion » : 1er de la saison `season`, affiché jusqu'au `until` inclus. */
+  champion?: { season: number; until: string } | null;
 };
 /** Flamme renvoyée à la publication : `gained` si c'est la première publication du jour. */
 export type FlameGain = { gained: boolean; streak: number; seasonDays: number; record: number };

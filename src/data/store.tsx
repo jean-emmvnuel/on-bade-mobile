@@ -32,8 +32,10 @@ export * from './format';
 export { USE_BACKEND };
 
 export type LeaderRow = { rank: number; userId: string; streak: number; seasonDays: number };
-export type SeasonInfo = { number: number; day: number; length: number };
+export type SeasonInfo = { number: number; day: number; length: number; endsOn?: string };
 /** Ce que gagne le 1er de la saison : badge Champion pendant `badgeDays` jours et un lot surprise. */
+/** Une page de badings : identifiants dans l'ordre reçu, et de quoi charger la suite. */
+export type Page = { badingIds: string[]; hasMore: boolean; nextBefore?: number };
 export type SeasonReward = { badge: string; badgeDays: number; prize: string };
 export type ScoreRow = { rank: number; userId: string; score: number; level: string; levelIndex: number };
 
@@ -116,6 +118,15 @@ type Store = {
   loadMoreFeed: () => Promise<number>;
   /** Classement de la saison par flammes (30 premiers) et mon rang ; les Badeurs classés sont ajoutés aux utilisateurs connus. */
   loadLeaderboard: () => Promise<{ season: SeasonInfo; reward: SeasonReward | null; champion: { userId: string; season: number; streak: number } | null; badeurs: LeaderRow[]; me: { rank: number; streak: number; seasonDays: number } | null | undefined }>;
+  /** Profil public d'un Badeur (identifiant ou pseudo) : son id local et ses badings signés, par pages. */
+  loadUserProfile: (ref: string, before?: number) => Promise<Page & { userId: string }>;
+  /** Recherche (badings et comptes) : comptes trouvés et badings, par pages. */
+  searchAll: (q: string, type?: 'all' | 'badings' | 'users', before?: number) => Promise<Page & { accounts: string[] }>;
+  /** Badings d'un hashtag, par pages. */
+  loadHashtag: (tag: string, before?: number) => Promise<Page>;
+  /** E-mails « tu nous manques » (relances) : activés par défaut. */
+  emailNudges: boolean;
+  setEmailNudges: (on: boolean) => Promise<void>;
   /** Classement par BadeScore : les 30 premiers et mon rang. */
   loadScoreBoard: () => Promise<{ badeurs: ScoreRow[]; me: { rank: number; score: number; level: string; levelIndex: number } | null | undefined }>;
   /** Récupère les badings publiés depuis le dernier chargement ; renvoie leur nombre. */
@@ -220,6 +231,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [myStickers, setMyStickers] = useState<string[]>([]);
   const [recentStickers, setRecentStickers] = useState<string[]>([]);
   const [mentionPolicy, setMentionPolicyState] = useState<MentionPolicy>('everyone');
+  const [emailNudges, setEmailNudgesState] = useState(true);
   const [badge, setBadge] = useState<BadgeRequest>(USE_BACKEND ? { status: 'none' } : DEMO_BADGE);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [comments, setComments] = useState<Comment[]>(USE_BACKEND ? [] : seedComments);
@@ -613,6 +625,54 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, [mergeUsers]);
 
+  /** Range une page de badings reçue du serveur (badings, originaux des rebades, auteurs). */
+  const storePage = useCallback((r: any): Page => {
+    const { badings = [], origins = [], users: people = [] } = r ?? {};
+    mergeUsers(people);
+    mergeBadings([...badings, ...origins]);
+    return { badingIds: badings.map((b: any) => b.id), hasMore: !!r?.hasMore, nextBefore: r?.nextBefore ?? undefined };
+  }, [mergeUsers, mergeBadings]);
+
+  const loadUserProfile = useCallback(async (ref: string, before?: number) => {
+    const map = ids();
+    if (!USE_BACKEND) {
+      const local = live.current.users[ref] ?? Object.values(live.current.users).find((u) => u.pseudo.toLowerCase() === ref.toLowerCase());
+      const own = live.current.feed.filter((b) => b.authorId === local?.id && !b.anonymous && !b.deleted).sort((a, b) => b.createdAt - a.createdAt);
+      return { userId: local?.id ?? ref, badingIds: own.map((b) => b.id), hasMore: false };
+    }
+    const r = await api.getUserProfile(map.toServer(ref), before);
+    if (r.user) mergeUsers([r.user]);
+    const page = storePage(r);
+    return { ...page, hasMore: page.badingIds.length >= 20, userId: map.toLocal(r.user?.id ?? ref) };
+  }, [mergeUsers, storePage]);
+
+  const searchAll = useCallback(async (q: string, type: 'all' | 'badings' | 'users' = 'all', before?: number) => {
+    if (!USE_BACKEND) {
+      const t = q.toLowerCase();
+      const accounts = Object.values(live.current.users).filter((u) => u.pseudo.toLowerCase().includes(t.replace(/^@/, ''))).slice(0, 10).map((u) => u.id);
+      const found = live.current.feed.filter((b) => !b.deleted && b.text.toLowerCase().includes(t)).sort((a, b) => b.createdAt - a.createdAt);
+      return { accounts: type === 'badings' ? [] : accounts, badingIds: type === 'users' ? [] : found.map((b) => b.id), hasMore: false };
+    }
+    const r = await api.search(q, type, before);
+    const page = storePage(r);
+    const map = ids();
+    return { ...page, accounts: (r.accounts ?? []).map((a: string) => map.toLocal(a)) };
+  }, [storePage]);
+
+  const loadHashtag = useCallback(async (tag: string, before?: number) => {
+    if (!USE_BACKEND) {
+      const re = new RegExp(`(^|[^\\p{L}\\p{N}_&/])#${tag.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}(?![\\p{L}\\p{N}_])`, 'iu');
+      const found = live.current.feed.filter((b) => !b.deleted && re.test(b.text)).sort((a, b) => b.createdAt - a.createdAt);
+      return { badingIds: found.map((b) => b.id), hasMore: false };
+    }
+    return storePage(await api.getHashtag(tag, before));
+  }, [storePage]);
+
+  const setEmailNudges = useCallback(async (on: boolean) => {
+    if (USE_BACKEND) await api.updateSettings({ emailNudges: on });
+    setEmailNudgesState(on);
+  }, []);
+
   const incoming = useRef([...incomingBadings]);
   const refreshFeed = useCallback(async () => {
     if (USE_BACKEND) {
@@ -1004,7 +1064,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const loadSettings = useCallback(async () => {
     if (!USE_BACKEND) return;
-    const { mentionPolicy: policy, blocked: list = [], badge: b, deletion: d } = await api.getSettings();
+    const { mentionPolicy: policy, emailNudges: nudges, blocked: list = [], badge: b, deletion: d } = await api.getSettings();
+    if (typeof nudges === 'boolean') setEmailNudgesState(nudges);
     mergeUsers(list);
     const map = ids();
     if (policy) setMentionPolicyState(policy);
@@ -1065,6 +1126,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       loadMoreFeed,
       loadLeaderboard,
       loadScoreBoard,
+      loadUserProfile,
+      searchAll,
+      loadHashtag,
+      emailNudges,
+      setEmailNudges,
       pins,
       notifications,
       draft,
@@ -1138,7 +1204,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPendingLink,
       searchPseudos,
     }),
-    [ready, onboarded, session, users, sortedFeed, feedPaging, loadMoreFeed, loadLeaderboard, loadScoreBoard, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, markRead, setMentionPolicy, requestBadge, comments, commentsFor, commentTree, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, changeName, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
+    [ready, onboarded, session, users, sortedFeed, feedPaging, loadMoreFeed, loadLeaderboard, loadScoreBoard, loadUserProfile, searchAll, loadHashtag, emailNudges, setEmailNudges, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, markRead, setMentionPolicy, requestBadge, comments, commentsFor, commentTree, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, changeName, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

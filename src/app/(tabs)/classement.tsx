@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { LEVEL_EMOJI } from '@/components/BadeScore';
+import { SeasonCountdown } from '@/components/SeasonCountdown';
 import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -80,7 +81,7 @@ function ScoreBoard() {
     const top = b.rank <= 3;
     return (
       <Animated.View entering={index < 8 ? FadeInDown.duration(300).delay(index * 45) : undefined}>
-        <Pressable onPress={() => (me ? router.push('/(tabs)/profile') : undefined)} disabled={!me}
+        <Pressable onPress={() => (me ? router.push('/(tabs)/profile') : router.push({ pathname: '/u/[id]', params: { id: b.userId } }))}
           accessibilityLabel={`${b.rank}e, @${u?.pseudo ?? 'Badeur'}, ${b.score} points, ${b.level}`}
           style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, marginHorizontal: space.sm, paddingVertical: 10, paddingHorizontal: 10, borderRadius: radius.lg,
             ...(top ? { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line } : {}),
@@ -166,18 +167,19 @@ export default function Classement() {
             <AppText style={{ fontFamily: fonts.display, fontSize: 16, color: '#FFD166' }}>À gagner : le 1er de la saison {season.number}</AppText>
             <AppText variant="small">👑 le badge {data.reward.badge.replace(/^👑\s*/, '')} sur son profil pendant {data.reward.badgeDays} jours</AppText>
             {data.reward.prize === 'surprise' ? <AppText variant="small">🎁 un lot surprise remis par l’équipe On Bade</AppText> : null}
-            <AppText variant="small" color={colors.text2}>{left > 0 ? 'Garde ta série jusqu’au bout de la saison !' : 'Dernier jour : tout se joue aujourd’hui !'}</AppText>
+            <AppText variant="small" color={colors.text2} style={{ marginTop: 4 }}>{left > 0 ? 'Fin de la saison dans' : 'Dernier jour : tout se joue avant minuit !'}</AppText>
+            <SeasonCountdown season={season} />
           </View>
         </View>
       ) : null}
       {data?.champion ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.lg, borderWidth: 1, borderColor: 'rgba(255,201,60,0.35)', backgroundColor: colors.surface }}>
+        <Pressable onPress={() => router.push({ pathname: '/u/[id]', params: { id: data.champion!.userId } })} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.lg, borderWidth: 1, borderColor: 'rgba(255,201,60,0.35)', backgroundColor: colors.surface }}>
           <Avatar user={users[data.champion.userId] ?? null} size={40} />
           <View style={{ flex: 1 }}>
             <AppText variant="label">👑 @{users[data.champion.userId]?.pseudo ?? 'Badeur'}</AppText>
             <AppText variant="small" color={colors.text2}>Champion de la saison {data.champion.season} · {data.champion.streak} flamme{data.champion.streak > 1 ? 's' : ''} d’affilée</AppText>
           </View>
-        </View>
+        </Pressable>
       ) : null}
       {data?.me && !inTop ? (
         <Pressable onPress={() => router.push('/(tabs)/profile')} accessibilityRole="button"
@@ -199,7 +201,7 @@ export default function Classement() {
     const top = b.rank <= 3;
     return (
       <Animated.View entering={index < 8 ? FadeInDown.duration(300).delay(index * 45) : undefined}>
-        <Pressable onPress={() => (me ? router.push('/(tabs)/profile') : undefined)} disabled={!me}
+        <Pressable onPress={() => (me ? router.push('/(tabs)/profile') : router.push({ pathname: '/u/[id]', params: { id: b.userId } }))}
           accessibilityLabel={`${b.rank}e, @${u?.pseudo ?? 'Badeur'}, ${b.streak} flamme${b.streak > 1 ? 's' : ''}`}
           style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, marginHorizontal: space.sm, paddingVertical: 10, paddingHorizontal: 10, borderRadius: radius.lg,
             ...(top ? { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line } : {}),

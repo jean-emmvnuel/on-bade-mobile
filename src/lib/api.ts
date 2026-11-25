@@ -207,6 +207,12 @@ export const getFeedPage = (before: number) => get('/feed', { before, limit: FEE
 export const getLeaderboard = () => get('/leaderboard');
 /** Classement par BadeScore (30 premiers) : { badeurs: [{ rank, user, score, level, levelIndex }], me, total }. */
 export const getScoreBoard = () => get('/leaderboard', { type: 'badescore' });
+/** Profil public d'un Badeur (identifiant ou pseudo) : { user (flammes, BadeScore), badings, origins, users }. */
+export const getUserProfile = (ref: string, before?: number) => get(`/users/${id(ref)}`, { before });
+/** Recherche publique : { accounts, badings, origins, users, hasMore, nextBefore }. */
+export const search = (q: string, type: 'all' | 'badings' | 'users' = 'all', before?: number) => get('/search', { q, type, before });
+/** Badings d'un hashtag, du plus récent au plus ancien : { tag, badings, origins, users, hasMore, nextBefore }. */
+export const getHashtag = (tag: string, before?: number) => get(`/hashtags/${id(tag)}`, { before });
 export const getBading = (badingId: string) => get(`/badings/${id(badingId)}`);
 export const createBading = (b: { text: string; anonymous: boolean; image: { dataUrl: string; ratio: number } | null }) => post('/badings', b);
 export const addBadingView = (badingId: string) => post(`/badings/${id(badingId)}/views`);
@@ -238,7 +244,7 @@ export const getExport = () => get('/me/export');
 export const updateMe = (changes: { pseudo?: string; firstName?: string; lastName?: string }) => patch('/me', changes);
 export const updatePhoto = (image: string | null) => put('/me/photo', { image });
 export const getSettings = () => get('/me/settings');
-export const updateSettings = (changes: { mentionPolicy: string }) => patch('/me/settings', changes);
+export const updateSettings = (changes: { mentionPolicy?: string; emailNudges?: boolean }) => patch('/me/settings', changes);
 export const blockUser = (userId: string) => put(`/me/blocked/${id(userId)}`);
 export const unblockUser = (userId: string) => del(`/me/blocked/${id(userId)}`);
 export const addFavorite = (badingId: string) => put(`/me/favorites/${id(badingId)}`);

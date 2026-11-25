@@ -61,3 +61,5 @@ export { default as ArrowUp } from 'lucide-react-native/icons/arrow-up';
 export { default as ChevronDown } from 'lucide-react-native/icons/chevron-down';
 export { default as ArrowRight } from 'lucide-react-native/icons/arrow-right';
 export { default as Download } from 'lucide-react-native/icons/download';
+export { default as Search } from 'lucide-react-native/icons/search';
+export { default as Hash } from 'lucide-react-native/icons/hash';
