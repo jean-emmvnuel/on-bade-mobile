@@ -203,6 +203,8 @@ export const requestPasswordReset = (email: string) => post('/password-reset', {
 export const FEED_PAGE_SIZE = 20;
 export const getFeed = (since?: number) => get('/feed', { since, limit: FEED_PAGE_SIZE }); // → { badings, …, hasMore, nextBefore }
 export const getFeedPage = (before: number) => get('/feed', { before, limit: FEED_PAGE_SIZE });
+/** Classement public par BadeScore (30 premiers) : { badeurs: [{ rank, user, score, level, levelIndex }], me, total }. */
+export const getLeaderboard = () => get('/leaderboard');
 export const getBading = (badingId: string) => get(`/badings/${id(badingId)}`);
 export const createBading = (b: { text: string; anonymous: boolean; image: { dataUrl: string; ratio: number } | null }) => post('/badings', b);
 export const addBadingView = (badingId: string) => post(`/badings/${id(badingId)}/views`);

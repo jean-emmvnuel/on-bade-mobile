@@ -8,7 +8,7 @@ import { colors, fonts, radius, space } from '@/theme/tokens';
 import { AppText } from './AppText';
 import { Sheet } from './Sheet';
 
-const LEVEL_EMOJI = ['🌱', '🏘️', '🔥', '🚀', '👑'];
+export const LEVEL_EMOJI = ['🌱', '🏘️', '🔥', '🚀', '👑'];
 // Ce qui fait monter le BadeScore (sans le détail du calcul, qui reste côté serveur).
 const USED = ['Les rires reçus', 'Les commentaires reçus', 'Les partages', 'Les rebades', 'Les badings publiés', 'Les commentaires écrits'];
 
