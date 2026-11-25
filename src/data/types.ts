@@ -11,11 +11,11 @@ export type User = {
   firstName?: string;
   lastName?: string;
   pseudoChangeableAt?: number;
-  /** BadeScore (profil) : activité des 30 derniers jours, calculée par le serveur (badings signés seulement). */
+  /** BadeScore (profil) : toute l'activité depuis l'inscription, calculée par le serveur (badings signés seulement). */
   badeScore?: BadeScore;
 };
 
-export type BadeScore = { score: number; level: string; levelIndex: number; next: number | null; nextLevel: string | null; days: number };
+export type BadeScore = { score: number; level: string; levelIndex: number; from: number; next: number | null; nextLevel: string | null };
 
 /** Image d'un bading, déjà recadrée et compressée (F1 RG2). */
 export type BadingImage = { uri: string; width: number; height: number };
