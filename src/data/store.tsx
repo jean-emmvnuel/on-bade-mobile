@@ -33,6 +33,8 @@ export { USE_BACKEND };
 
 export type LeaderRow = { rank: number; userId: string; streak: number; seasonDays: number };
 export type SeasonInfo = { number: number; day: number; length: number };
+/** Ce que gagne le 1er de la saison : badge Champion pendant `badgeDays` jours et un lot surprise. */
+export type SeasonReward = { badge: string; badgeDays: number; prize: string };
 export type ScoreRow = { rank: number; userId: string; score: number; level: string; levelIndex: number };
 
 const PUBLISH_ERRORS: PublishError[] = ['too_short', 'too_long', 'caption_too_long', 'blocked_word', 'too_many_mentions'];
@@ -113,7 +115,7 @@ type Store = {
   /** Page suivante du fil (en arrivant en bas) ; renvoie le nombre de badings ajoutés. */
   loadMoreFeed: () => Promise<number>;
   /** Classement de la saison par flammes (30 premiers) et mon rang ; les Badeurs classés sont ajoutés aux utilisateurs connus. */
-  loadLeaderboard: () => Promise<{ season: SeasonInfo; badeurs: LeaderRow[]; me: { rank: number; streak: number; seasonDays: number } | null | undefined }>;
+  loadLeaderboard: () => Promise<{ season: SeasonInfo; reward: SeasonReward | null; champion: { userId: string; season: number; streak: number } | null; badeurs: LeaderRow[]; me: { rank: number; streak: number; seasonDays: number } | null | undefined }>;
   /** Classement par BadeScore : les 30 premiers et mon rang. */
   loadScoreBoard: () => Promise<{ badeurs: ScoreRow[]; me: { rank: number; score: number; level: string; levelIndex: number } | null | undefined }>;
   /** Récupère les badings publiés depuis le dernier chargement ; renvoie leur nombre. */
@@ -579,13 +581,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const badeurs = [...by.entries()].map(([userId, d]) => ({ userId, streak: Math.min(d.size, 30), seasonDays: Math.min(d.size, 30) }))
         .sort((a, b) => b.streak - a.streak).slice(0, 30).map((b, i) => ({ rank: i + 1, ...b }));
       const mine = badeurs.find((b) => b.userId === ME_ID);
-      return { season: { number: 1, day: 1, length: 30 }, badeurs, me: live.current.session ? (mine ?? null) : undefined };
+      return { season: { number: 1, day: 1, length: 30 }, reward: { badge: '👑 Champion', badgeDays: 30, prize: 'surprise' }, champion: null, badeurs, me: live.current.session ? (mine ?? null) : undefined };
     }
     const r = await api.getLeaderboard();
-    mergeUsers(r.badeurs.map((b: any) => b.user));
+    mergeUsers([...r.badeurs.map((b: any) => b.user), ...(r.champion ? [r.champion.user] : [])]);
     const map = ids();
     return {
       season: r.season,
+      reward: r.reward ?? null,
+      champion: r.champion ? { userId: map.toLocal(r.champion.user.id), season: r.champion.season, streak: r.champion.streak } : null,
       badeurs: r.badeurs.map((b: any) => ({ rank: b.rank, userId: map.toLocal(b.user.id), streak: b.streak, seasonDays: b.seasonDays })),
       me: r.me,
     };

@@ -10,7 +10,7 @@ import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Verified } from '@/components/Verified';
-import { useStore, type LeaderRow, type ScoreRow, type SeasonInfo } from '@/data/store';
+import { useStore, type LeaderRow, type ScoreRow, type SeasonInfo, type SeasonReward } from '@/data/store';
 import { ME_ID } from '@/data/seed';
 import { errorMessage } from '@/lib/api';
 import { colors, fonts, radius, space } from '@/theme/tokens';
@@ -131,7 +131,7 @@ export default function Classement() {
   const insets = useSafeAreaInsets();
   const [kind, setKind] = useState<Kind>('flames');
   const { loadLeaderboard, users } = useStore();
-  const [data, setData] = useState<{ season: SeasonInfo; badeurs: LeaderRow[]; me: { rank: number; streak: number } | null | undefined } | null>(null);
+  const [data, setData] = useState<{ season: SeasonInfo; reward: SeasonReward | null; champion: { userId: string; season: number; streak: number } | null; badeurs: LeaderRow[]; me: { rank: number; streak: number } | null | undefined } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -159,6 +159,26 @@ export default function Classement() {
           <AppText variant="small" color={colors.text2}>1 jour où tu publies = 1 flamme 🔥. Un jour sans bading, et la série repart de zéro. Nouvelle saison, tout le monde repart à égalité.</AppText>
         </View>
       )}
+      {season && data?.reward ? (
+        <View accessibilityLabel="À gagner" style={{ flexDirection: 'row', gap: space.md, padding: space.md, borderRadius: radius.lg, borderWidth: 1, borderColor: 'rgba(255,201,60,0.4)', backgroundColor: 'rgba(255,201,60,0.14)' }}>
+          <AppText style={{ fontSize: 32 }}>🏆</AppText>
+          <View style={{ flex: 1, gap: 3 }}>
+            <AppText style={{ fontFamily: fonts.display, fontSize: 16, color: '#FFD166' }}>À gagner : le 1er de la saison {season.number}</AppText>
+            <AppText variant="small">👑 le badge {data.reward.badge.replace(/^👑\s*/, '')} sur son profil pendant {data.reward.badgeDays} jours</AppText>
+            {data.reward.prize === 'surprise' ? <AppText variant="small">🎁 un lot surprise remis par l’équipe On Bade</AppText> : null}
+            <AppText variant="small" color={colors.text2}>{left > 0 ? 'Garde ta série jusqu’au bout de la saison !' : 'Dernier jour : tout se joue aujourd’hui !'}</AppText>
+          </View>
+        </View>
+      ) : null}
+      {data?.champion ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.lg, borderWidth: 1, borderColor: 'rgba(255,201,60,0.35)', backgroundColor: colors.surface }}>
+          <Avatar user={users[data.champion.userId] ?? null} size={40} />
+          <View style={{ flex: 1 }}>
+            <AppText variant="label">👑 @{users[data.champion.userId]?.pseudo ?? 'Badeur'}</AppText>
+            <AppText variant="small" color={colors.text2}>Champion de la saison {data.champion.season} · {data.champion.streak} flamme{data.champion.streak > 1 ? 's' : ''} d’affilée</AppText>
+          </View>
+        </View>
+      ) : null}
       {data?.me && !inTop ? (
         <Pressable onPress={() => router.push('/(tabs)/profile')} accessibilityRole="button"
           style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.lg, backgroundColor: colors.brandSoft, borderWidth: 1, borderColor: 'rgba(183,107,255,0.4)' }}>
