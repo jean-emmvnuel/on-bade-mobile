@@ -40,7 +40,8 @@ export function BadeScore({ score, mine = false }: { score?: Score; mine?: boole
       </Pressable>
       <Sheet visible={open} onClose={() => setOpen(false)} title="Comment marche le BadeScore ?">
         <View style={{ paddingHorizontal: space.xl, gap: space.md, paddingBottom: space.lg }}>
-          <AppText variant="body" color={colors.text2}>Le BadeScore mesure l’activité {mine ? 'de ton compte' : 'de ce Badeur'} sur les {score.days} derniers jours. Il monte quand tu fais bader, et redescend doucement quand tu te fais rare.</AppText>
+          <AppText variant="bodyStrong">{mine ? 'Ton' : 'Le'} BadeScore vient de l’engouement autour {mine ? 'de tes' : 'de ses'} badings : les rires, les commentaires, les partages et les rebades qu’ils reçoivent.</AppText>
+          <AppText variant="body" color={colors.text2}>Calculé sur les {score.days} derniers jours : il monte quand {mine ? 'tu fais' : 'il fait'} bader, et redescend doucement en cas d’absence.</AppText>
           {RULES.map(([pts, what]) => (
             <AppText key={what} variant="body"><AppText variant="bodyStrong" color={colors.brandInk}>{pts}</AppText>  {what}</AppText>
           ))}
