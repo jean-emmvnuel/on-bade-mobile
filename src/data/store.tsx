@@ -17,7 +17,7 @@ import { ApiError, USE_BACKEND, fireAndForget, isApiError } from '@/lib/api';
 import { startBadingActivity } from '@/lib/liveActivity';
 import { notifyLocal, registerForPush, type PushStatus } from '@/lib/notifications';
 
-import type { AppNotification, Bading, BadingImage, Comment, CustomSticker, MentionPolicy, User, VoiceRecording } from './types';
+import type { AppNotification, Bading, BadingImage, Comment, CustomSticker, FlameGain, MentionPolicy, User, VoiceRecording } from './types';
 import { BANNED, MAX_MY_STICKERS, RULES, countMentions, validateBading, type PublishError } from './rules';
 import { buildTree, descendantIds, groupThreads, type CommentNode } from './comments';
 import { momentOf, withPinsFirst, type FeedPaging, type Pin } from './feed';
@@ -31,7 +31,8 @@ export * from './format';
 
 export { USE_BACKEND };
 
-export type LeaderRow = { rank: number; userId: string; score: number; level: string; levelIndex: number };
+export type LeaderRow = { rank: number; userId: string; streak: number; seasonDays: number };
+export type SeasonInfo = { number: number; day: number; length: number };
 
 const PUBLISH_ERRORS: PublishError[] = ['too_short', 'too_long', 'caption_too_long', 'blocked_word', 'too_many_mentions'];
 
@@ -110,8 +111,8 @@ type Store = {
   feedPaging: FeedPaging;
   /** Page suivante du fil (en arrivant en bas) ; renvoie le nombre de badings ajoutés. */
   loadMoreFeed: () => Promise<number>;
-  /** Classement par BadeScore (30 premiers) et mon rang ; les Badeurs classés sont ajoutés aux utilisateurs connus. */
-  loadLeaderboard: () => Promise<{ badeurs: LeaderRow[]; me: { rank: number; score: number; level: string; levelIndex: number } | null | undefined }>;
+  /** Classement de la saison par flammes (30 premiers) et mon rang ; les Badeurs classés sont ajoutés aux utilisateurs connus. */
+  loadLeaderboard: () => Promise<{ season: SeasonInfo; badeurs: LeaderRow[]; me: { rank: number; streak: number; seasonDays: number } | null | undefined }>;
   /** Récupère les badings publiés depuis le dernier chargement ; renvoie leur nombre. */
   refreshFeed: () => Promise<number>;
   /** Charge un bading, ses commentaires et ses rebades avec avis. */
@@ -122,7 +123,7 @@ type Store = {
   share: (id: string) => void;
   addView: (id: string) => void;
   /** F1 : texte, image recadrée, ou les deux. */
-  publish: (text: string, anonymous: boolean, image?: BadingImage | null) => Promise<{ ok: true; id: string } | { ok: false; error: PublishError }>;
+  publish: (text: string, anonymous: boolean, image?: BadingImage | null) => Promise<{ ok: true; id: string; flame?: FlameGain | null } | { ok: false; error: PublishError }>;
   rebade: (id: string, opinion: string, anonymous: boolean) => Promise<void>;
   remove: (id: string) => Promise<void>;
   report: (id: string, reason: string) => Promise<void>;
@@ -569,19 +570,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const loadLeaderboard = useCallback(async () => {
     if (!USE_BACKEND) {
-      // Mode démo : classement calculé sur les badings signés en mémoire.
-      const by = new Map<string, number>();
-      live.current.feed.filter((b) => !b.anonymous).forEach((b) => by.set(b.authorId, (by.get(b.authorId) ?? 0) + 5 + b.likes + 3 * b.shares + 3 * b.rebades));
-      const badeurs = [...by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30)
-        .map(([userId, score], i) => ({ rank: i + 1, userId, score, level: score >= 300 ? 'Badeur du quartier' : 'Petit Badeur', levelIndex: score >= 300 ? 1 : 0 }));
+      // Mode démo : saison fictive, un jour actif par jour où le Badeur a publié.
+      const by = new Map<string, Set<string>>();
+      live.current.feed.forEach((b) => by.set(b.authorId, (by.get(b.authorId) ?? new Set()).add(new Date(b.createdAt).toISOString().slice(0, 10))));
+      const badeurs = [...by.entries()].map(([userId, d]) => ({ userId, streak: Math.min(d.size, 30), seasonDays: Math.min(d.size, 30) }))
+        .sort((a, b) => b.streak - a.streak).slice(0, 30).map((b, i) => ({ rank: i + 1, ...b }));
       const mine = badeurs.find((b) => b.userId === ME_ID);
-      return { badeurs, me: live.current.session ? (mine ?? null) : undefined };
+      return { season: { number: 1, day: 1, length: 30 }, badeurs, me: live.current.session ? (mine ?? null) : undefined };
     }
     const r = await api.getLeaderboard();
     mergeUsers(r.badeurs.map((b: any) => b.user));
     const map = ids();
     return {
-      badeurs: r.badeurs.map((b: any) => ({ rank: b.rank, userId: map.toLocal(b.user.id), score: b.score, level: b.level, levelIndex: b.levelIndex })),
+      season: r.season,
+      badeurs: r.badeurs.map((b: any) => ({ rank: b.rank, userId: map.toLocal(b.user.id), streak: b.streak, seasonDays: b.seasonDays })),
       me: r.me,
     };
   }, [mergeUsers]);
@@ -655,7 +657,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (USE_BACKEND) {
         try {
           const dataUrl = image ? await api.toDataUrl(image.uri) : null;
-          const { bading } = await api.createBading({
+          const { bading, flame = null } = await api.createBading({
             text: text.trim(),
             anonymous,
             // Forme bornée à 1:2 – 2:1 (règle du serveur) : l'arrondi en pixels ne doit pas la faire sortir des bornes.
@@ -663,7 +665,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           });
           mergeBadings([bading]);
           setDraft({ text: '', anonymous: false, image: null });
-          return { ok: true, id: bading.id };
+          // Flamme du jour : mon profil en tient compte tout de suite (le serveur reste la source de vérité).
+          if (flame) {
+            const upd = (u: User): User => (u.flames ? { ...u, flames: { ...u.flames, streak: flame.streak, seasonDays: flame.seasonDays, record: flame.record, today: true } } : u);
+            setUsers((all) => (all[ME_ID] ? { ...all, [ME_ID]: upd(all[ME_ID]) } : all));
+            setSession((s) => (s ? { ...s, user: upd(s.user) } : s));
+          }
+          return { ok: true, id: bading.id, flame };
         } catch (e) {
           if (isApiError(e) && PUBLISH_ERRORS.includes(e.code as PublishError)) return { ok: false, error: e.code as PublishError };
           throw e;

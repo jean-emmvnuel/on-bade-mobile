@@ -13,7 +13,16 @@ export type User = {
   pseudoChangeableAt?: number;
   /** BadeScore (profil) : toute l'activité depuis l'inscription, calculée par le serveur (badings signés seulement). */
   badeScore?: BadeScore;
+  /** Flammes (profil) : 1 jour d'activité = 1 flamme ; saisons de 30 jours. Calculées par le serveur. */
+  flames?: Flames;
 };
+
+export type Flames = {
+  streak: number; today: boolean; seasonDays: number; record: number; totalDays: number; seasonRank: number | null;
+  season: { number: number; startsOn: string; endsOn: string; day: number; length: number };
+};
+/** Flamme renvoyée à la publication : `gained` si c'est la première publication du jour. */
+export type FlameGain = { gained: boolean; streak: number; seasonDays: number; record: number };
 
 export type BadeScore = { score: number; level: string; levelIndex: number; from: number; next: number | null; nextLevel: string | null; levels?: { name: string; min: number }[] };
 

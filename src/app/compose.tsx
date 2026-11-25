@@ -28,6 +28,13 @@ const ERRORS: Record<PublishError, string> = {
   too_many_mentions: `${RULES.maxMentions} mentions maximum par bading.`,
 };
 
+/** Message quand la flamme du jour est gagnée (même texte que le site). */
+export function flameMessage({ streak, seasonDays }: { streak: number; seasonDays: number }) {
+  if (streak > 1) return `🔥 Félicitations ! Tu as conservé ta série. Tu possèdes maintenant ${streak} flammes consécutives !`;
+  if (seasonDays <= 1) return '🔥 Première flamme de la saison ! Reviens demain pour la garder.';
+  return '🔥 Nouvelle flamme ! Ta série repart : reviens demain pour la faire grandir.';
+}
+
 export default function Compose() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
@@ -102,6 +109,9 @@ export default function Compose() {
     success();
     router.back();
     setTimeout(() => toast(anonymous ? 'Publié en Badeur anonyme' : 'Ton bading est en ligne'), 250);
+    // Flamme du jour gagnée (une seule par jour, décidée par le serveur) : on félicite.
+    const flame = res.flame;
+    if (flame?.gained) setTimeout(() => toast(flameMessage(flame)), 2200);
   };
 
   return (

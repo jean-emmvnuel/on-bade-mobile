@@ -13,6 +13,7 @@ import { useBadingActions } from '@/components/BadingActions';
 import { Button } from '@/components/Button';
 import { ImageCropper } from '@/components/ImageCropper';
 import { BadeScore } from '@/components/BadeScore';
+import { Flames } from '@/components/Flames';
 import { Sheet, SheetItem } from '@/components/Sheet';
 import { PressableScale } from '@/components/PressableScale';
 import { useToast } from '@/components/Toast';
@@ -115,6 +116,7 @@ export default function Profile() {
                   </View>
                 ))}
               </View>
+              <Flames flames={me.flames} mine />
               <BadeScore score={me.badeScore} mine />
               <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
                 <PressableScale onPress={onPhotoPress} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.surface2 }}>
