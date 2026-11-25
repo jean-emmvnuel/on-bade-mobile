@@ -10,10 +10,8 @@ import { Sheet } from './Sheet';
 
 const LEVEL_EMOJI = ['🌱', '🏘️', '🔥', '🚀', '👑'];
 const STEPS = [0, 50, 200, 500, 1500];
-const RULES: [string, string][] = [
-  ['+5', 'par bading signé publié'], ['+1', 'par rire reçu'], ['+2', 'par commentaire reçu'],
-  ['+3', 'par partage'], ['+3', 'par rebade d’un autre Badeur'], ['+1', 'par commentaire écrit (10 par jour au plus)'],
-];
+// Ce qui fait monter le BadeScore (sans le détail du calcul, qui reste côté serveur).
+const USED = ['Les rires reçus', 'Les commentaires reçus', 'Les partages', 'Les rebades', 'Les badings publiés', 'Les commentaires écrits'];
 
 export function BadeScore({ score, mine = false }: { score?: Score; mine?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -23,7 +21,7 @@ export function BadeScore({ score, mine = false }: { score?: Score; mine?: boole
   const left = score.next ? score.next - score.score : 0;
   return (
     <>
-      <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={`BadeScore ${score.score}, niveau ${score.level}. Comment est-il calculé ?`}
+      <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={`BadeScore ${score.score}, niveau ${score.level}. D’où vient-il ?`}
         style={{ alignSelf: 'stretch', marginTop: space.md, marginHorizontal: space.lg, padding: space.lg, gap: 6, borderRadius: radius.lg, borderWidth: 1, borderColor: 'rgba(183,107,255,0.35)', backgroundColor: 'rgba(152,16,230,0.16)' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <AppText style={{ fontSize: 20 }}>{LEVEL_EMOJI[score.levelIndex] ?? '🔥'}</AppText>
@@ -38,13 +36,11 @@ export function BadeScore({ score, mine = false }: { score?: Score; mine?: boole
           {score.next ? `${mine ? 'Encore' : 'Plus que'} ${left} point${left > 1 ? 's' : ''} pour ${score.nextLevel}` : 'Niveau maximum atteint 👑'} · {score.days} derniers jours
         </AppText>
       </Pressable>
-      <Sheet visible={open} onClose={() => setOpen(false)} title="Comment marche le BadeScore ?">
+      <Sheet visible={open} onClose={() => setOpen(false)} title="Le BadeScore">
         <View style={{ paddingHorizontal: space.xl, gap: space.md, paddingBottom: space.lg }}>
           <AppText variant="bodyStrong">{mine ? 'Ton' : 'Le'} BadeScore vient de l’engouement autour {mine ? 'de tes' : 'de ses'} badings : les rires, les commentaires, les partages et les rebades qu’ils reçoivent.</AppText>
-          <AppText variant="body" color={colors.text2}>Calculé sur les {score.days} derniers jours : il monte quand {mine ? 'tu fais' : 'il fait'} bader, et redescend doucement en cas d’absence.</AppText>
-          {RULES.map(([pts, what]) => (
-            <AppText key={what} variant="body"><AppText variant="bodyStrong" color={colors.brandInk}>{pts}</AppText>  {what}</AppText>
-          ))}
+          {USED.map((what) => <AppText key={what} variant="body"><AppText variant="bodyStrong" color={colors.brandInk}>•</AppText>  {what}</AppText>)}
+          <AppText variant="body" color={colors.text2}>Sur les {score.days} derniers jours.</AppText>
           <AppText variant="small" color={colors.text3}>Les badings anonymes ne comptent jamais : personne ne peut deviner qui les a écrits.</AppText>
         </View>
       </Sheet>
