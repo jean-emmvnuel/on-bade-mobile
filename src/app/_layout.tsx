@@ -13,6 +13,7 @@ import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { ShareProvider } from '@/components/ShareSheet';
 import { ToastProvider } from '@/components/Toast';
+import { FlameCelebrationHost } from '@/components/FlameCelebration';
 import { StoreProvider } from '@/data/store';
 import { listenToNotificationTaps } from '@/lib/notifications';
 import { syncRules } from '@/lib/platform';
@@ -69,6 +70,7 @@ export default function RootLayout() {
                 <Stack.Screen name="privacy" options={{ animation: 'slide_from_right' }} />
               </Stack>
             </View>
+            <FlameCelebrationHost />
             {!splashDone && <AnimatedSplash onDone={() => { if (__DEV__) console.log('[OnBade] splash terminé'); setSplashDone(true); }} />}
           </ThemeProvider>
           </ShareProvider>

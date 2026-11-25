@@ -15,6 +15,7 @@ import { useToast } from '@/components/Toast';
 import { Toggle } from '@/components/Toggle';
 import { Verified } from '@/components/Verified';
 import { countMentions, RULES, useStore, type PublishError } from '@/data/store';
+import { celebrateFlame } from '@/components/FlameCelebration';
 import type { BadingImage, User } from '@/data/types';
 import { errorMessage } from '@/lib/api';
 import { pickImage, type PickedImage } from '@/lib/pickImage';
@@ -111,7 +112,7 @@ export default function Compose() {
     setTimeout(() => toast(anonymous ? 'Publié en Badeur anonyme' : 'Ton bading est en ligne'), 250);
     // Flamme du jour gagnée (une seule par jour, décidée par le serveur) : on félicite.
     const flame = res.flame;
-    if (flame?.gained) setTimeout(() => toast(flameMessage(flame)), 2200);
+    if (flame?.gained) setTimeout(() => celebrateFlame({ streak: flame.streak, message: flameMessage(flame) }), 900);
   };
 
   return (
