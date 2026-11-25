@@ -33,6 +33,7 @@ export { USE_BACKEND };
 
 export type LeaderRow = { rank: number; userId: string; streak: number; seasonDays: number };
 export type SeasonInfo = { number: number; day: number; length: number };
+export type ScoreRow = { rank: number; userId: string; score: number; level: string; levelIndex: number };
 
 const PUBLISH_ERRORS: PublishError[] = ['too_short', 'too_long', 'caption_too_long', 'blocked_word', 'too_many_mentions'];
 
@@ -113,6 +114,8 @@ type Store = {
   loadMoreFeed: () => Promise<number>;
   /** Classement de la saison par flammes (30 premiers) et mon rang ; les Badeurs classés sont ajoutés aux utilisateurs connus. */
   loadLeaderboard: () => Promise<{ season: SeasonInfo; badeurs: LeaderRow[]; me: { rank: number; streak: number; seasonDays: number } | null | undefined }>;
+  /** Classement par BadeScore : les 30 premiers et mon rang. */
+  loadScoreBoard: () => Promise<{ badeurs: ScoreRow[]; me: { rank: number; score: number; level: string; levelIndex: number } | null | undefined }>;
   /** Récupère les badings publiés depuis le dernier chargement ; renvoie leur nombre. */
   refreshFeed: () => Promise<number>;
   /** Charge un bading, ses commentaires et ses rebades avec avis. */
@@ -588,6 +591,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, [mergeUsers]);
 
+  const loadScoreBoard = useCallback(async () => {
+    if (!USE_BACKEND) {
+      // Mode démo : BadeScore fictif tiré des rires reçus.
+      const by = new Map<string, number>();
+      live.current.feed.forEach((b) => by.set(b.authorId, (by.get(b.authorId) ?? 0) + 5 + (b.likes ?? 0)));
+      const badeurs = [...by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30)
+        .map(([userId, score], i) => ({ rank: i + 1, userId, score, level: 'Petit Badeur', levelIndex: 0 }));
+      return { badeurs, me: live.current.session ? (badeurs.find((b) => b.userId === ME_ID) ?? null) : undefined };
+    }
+    const r = await api.getScoreBoard();
+    mergeUsers(r.badeurs.map((b: any) => b.user));
+    const map = ids();
+    return {
+      badeurs: r.badeurs.map((b: any) => ({ rank: b.rank, userId: map.toLocal(b.user.id), score: b.score, level: b.level, levelIndex: b.levelIndex })),
+      me: r.me,
+    };
+  }, [mergeUsers]);
+
   const incoming = useRef([...incomingBadings]);
   const refreshFeed = useCallback(async () => {
     if (USE_BACKEND) {
@@ -1039,6 +1060,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       feedPaging,
       loadMoreFeed,
       loadLeaderboard,
+      loadScoreBoard,
       pins,
       notifications,
       draft,
@@ -1112,7 +1134,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPendingLink,
       searchPseudos,
     }),
-    [ready, onboarded, session, users, sortedFeed, feedPaging, loadMoreFeed, loadLeaderboard, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, markRead, setMentionPolicy, requestBadge, comments, commentsFor, commentTree, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, changeName, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
+    [ready, onboarded, session, users, sortedFeed, feedPaging, loadMoreFeed, loadLeaderboard, loadScoreBoard, pins, notifications, draft, mentionPolicy, badge, finishOnboarding, startSignup, verifySignupCode, resendSignupCode, isPseudoAvailable, register, logIn, isEmailTaken, pendingSignup, requestPasswordReset, signOut, enablePush, setPhoto, loadFeed, refreshFeed, loadBading, getBading, getUser, toggleLike, share, addView, publish, rebade, remove, report, loadNotifications, markAllRead, markRead, setMentionPolicy, requestBadge, comments, commentsFor, commentTree, commentCount, addComment, customStickers, myStickers, recentStickers, loadStickers, createSticker, saveSticker, unsaveSticker, removeComment, reportComment, toggleCommentLike, pushNotification, simulateEngagement, simulateReply, deletion, requestDeletion, cancelDeletion, favorites, toggleFavorite, blocked, block, unblock, changePseudo, changeName, loadProfile, loadSettings, loadExport, pendingLink, searchPseudos],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

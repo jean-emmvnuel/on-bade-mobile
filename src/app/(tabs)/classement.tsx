@@ -5,11 +5,12 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
+import { LEVEL_EMOJI } from '@/components/BadeScore';
 import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Verified } from '@/components/Verified';
-import { useStore, type LeaderRow, type SeasonInfo } from '@/data/store';
+import { useStore, type LeaderRow, type ScoreRow, type SeasonInfo } from '@/data/store';
 import { ME_ID } from '@/data/seed';
 import { errorMessage } from '@/lib/api';
 import { colors, fonts, radius, space } from '@/theme/tokens';
@@ -17,12 +18,118 @@ import { colors, fonts, radius, space } from '@/theme/tokens';
 const MEDALS = ['🥇', '🥈', '🥉'];
 const fmt = (n: number) => n.toLocaleString('fr-FR');
 
+type Kind = 'flames' | 'badescore';
+type ScoreData = { badeurs: ScoreRow[]; me: { rank: number; score: number; level: string; levelIndex: number } | null | undefined };
+
+/** Bascule Flammes / BadeScore en haut du classement. */
+function Switch({ kind, onChange }: { kind: Kind; onChange: (k: Kind) => void }) {
+  const opts: [Kind, string][] = [['flames', '🔥 Flammes'], ['badescore', '⭐ BadeScore']];
+  return (
+    <View accessibilityRole="tablist" style={{ flexDirection: 'row', marginHorizontal: space.lg, marginTop: space.md, padding: 4, borderRadius: radius.pill, backgroundColor: colors.surface }}>
+      {opts.map(([k, label]) => (
+        <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: kind === k }} onPress={() => onChange(k)}
+          style={{ flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, backgroundColor: kind === k ? colors.surface2 : 'transparent' }}>
+          <AppText variant="label" color={kind === k ? colors.text : colors.text2}>{label}</AppText>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+/** Classement par BadeScore : score cumulé depuis l'inscription, les 30 premiers et mon rang. */
+function ScoreBoard() {
+  const { loadScoreBoard, users } = useStore();
+  const [data, setData] = useState<ScoreData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(() => {
+    setError(null);
+    loadScoreBoard().then(setData, (e) => setError(errorMessage(e, 'Le classement n’a pas pu être chargé.')));
+  }, [loadScoreBoard]);
+  useEffect(() => { load(); }, [load]);
+
+  if (error) return (
+    <View style={{ padding: space.xl, gap: space.lg, alignItems: 'flex-start' }}>
+      <AppText variant="body" color={colors.text2}>{error}</AppText>
+      <Button label="Réessayer" kind="secondary" onPress={load} />
+    </View>
+  );
+  if (!data) return <ActivityIndicator color={colors.brandInk} style={{ marginTop: space.xxl }} />;
+  const inTop = data.badeurs.some((b) => b.userId === ME_ID);
+  const header = (
+    <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, gap: space.md }}>
+      <View style={{ padding: space.md, gap: 6, borderRadius: radius.lg, borderWidth: 1, borderColor: 'rgba(183,107,255,0.35)', backgroundColor: 'rgba(152,16,230,0.14)' }}>
+        <AppText style={{ fontFamily: fonts.display, fontSize: 18 }}>BadeScore</AppText>
+        <AppText variant="small" color={colors.text2}>L’engouement autour de tes badings signés : rires, commentaires, partages, rebades. Monte de rang en rang, de 🌱 Petit Badeur à 👑 Légende du Bade.</AppText>
+      </View>
+      {data.me && !inTop ? (
+        <Pressable onPress={() => router.push('/(tabs)/profile')} accessibilityRole="button"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.lg, backgroundColor: colors.brandSoft, borderWidth: 1, borderColor: 'rgba(183,107,255,0.4)' }}>
+          <AppText style={{ fontFamily: fonts.display, fontSize: 26, color: colors.brandInk }}>{data.me.rank}e</AppText>
+          <View style={{ flex: 1 }}>
+            <AppText variant="label">Ton rang · {fmt(data.me.score)} pts · {LEVEL_EMOJI[data.me.levelIndex]} {data.me.level}</AppText>
+            <AppText variant="small" color={colors.text2}>Fais réagir avec tes badings pour entrer dans le top 30 !</AppText>
+          </View>
+        </Pressable>
+      ) : null}
+      {data.me === null ? <AppText variant="small" color={colors.text2}>Pas encore de BadeScore : publie un bading signé et fais rire la communauté ⭐</AppText> : null}
+    </View>
+  );
+  const row = ({ item: b, index }: { item: ScoreRow; index: number }) => {
+    const u = users[b.userId];
+    const me = b.userId === ME_ID;
+    const top = b.rank <= 3;
+    return (
+      <Animated.View entering={index < 8 ? FadeInDown.duration(300).delay(index * 45) : undefined}>
+        <Pressable onPress={() => (me ? router.push('/(tabs)/profile') : undefined)} disabled={!me}
+          accessibilityLabel={`${b.rank}e, @${u?.pseudo ?? 'Badeur'}, ${b.score} points, ${b.level}`}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, marginHorizontal: space.sm, paddingVertical: 10, paddingHorizontal: 10, borderRadius: radius.lg,
+            ...(top ? { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line } : {}),
+            ...(me ? { backgroundColor: colors.brandSoft, borderWidth: 1.5, borderColor: colors.brandInk } : {}) }}>
+          <AppText style={{ width: 30, textAlign: 'center', fontSize: top ? 22 : 15, fontFamily: fonts.bodyBold, color: colors.text2 }}>{MEDALS[b.rank - 1] ?? b.rank}</AppText>
+          <Avatar user={u ?? null} size={top ? 48 : 40} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <AppText variant="label" numberOfLines={1} style={{ flexShrink: 1 }}>@{u?.pseudo ?? 'Badeur'}</AppText>
+              {u?.verified && <Verified size={13} />}
+              {me && <View style={{ paddingHorizontal: 7, borderRadius: radius.pill, backgroundColor: colors.brand }}><AppText variant="small" color="#fff">Toi</AppText></View>}
+            </View>
+            <AppText variant="small" color={colors.text3}>{LEVEL_EMOJI[b.levelIndex] ?? '⭐'} {b.level}</AppText>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <AppText style={{ fontFamily: fonts.display, fontSize: 18, color: colors.brandInk }}>{fmt(b.score)}</AppText>
+            <AppText variant="small" color={colors.text3} style={{ fontSize: 11 }}>pts</AppText>
+          </View>
+        </Pressable>
+      </Animated.View>
+    );
+  };
+  return (
+    <FlatList
+      data={data.badeurs}
+      keyExtractor={(b) => b.userId}
+      renderItem={row}
+      ListHeaderComponent={header}
+      ItemSeparatorComponent={() => <View style={{ height: 4 }} />}
+      contentContainerStyle={{ gap: space.md, paddingBottom: space.xxl }}
+      ListEmptyComponent={
+        <View style={{ padding: space.xl, gap: space.md, alignItems: 'flex-start' }}>
+          <AppText variant="heading">Personne n’a encore de BadeScore</AppText>
+          <AppText variant="body" color={colors.text2}>Publie un bading signé et fais réagir : tu prendras la tête !</AppText>
+          <Button label="Bader maintenant" onPress={() => router.push('/compose')} />
+        </View>
+      }
+    />
+  );
+}
+
 /**
- * Onglet Classement : la saison en cours (30 jours) par flammes — la série de jours actifs consécutifs en cours.
+ * Onglet Classement : deux classements au choix (bascule en haut) — Flammes (par défaut) ou BadeScore.
+ * Flammes : la saison en cours (30 jours) par flammes — la série de jours actifs consécutifs en cours.
  * 1 jour où l'on publie = 1 flamme. Les 30 premiers, et mon rang.
  */
 export default function Classement() {
   const insets = useSafeAreaInsets();
+  const [kind, setKind] = useState<Kind>('flames');
   const { loadLeaderboard, users } = useStore();
   const [data, setData] = useState<{ season: SeasonInfo; badeurs: LeaderRow[]; me: { rank: number; streak: number } | null | undefined } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +211,8 @@ export default function Classement() {
           <NotificationBell />
         </View>
       </View>
-      {error ? (
+      <Switch kind={kind} onChange={setKind} />
+      {kind === 'badescore' ? <ScoreBoard /> : error ? (
         <View style={{ padding: space.xl, gap: space.lg, alignItems: 'flex-start' }}>
           <AppText variant="body" color={colors.text2}>{error}</AppText>
           <Button label="Réessayer" kind="secondary" onPress={load} />

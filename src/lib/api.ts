@@ -205,6 +205,8 @@ export const getFeed = (since?: number) => get('/feed', { since, limit: FEED_PAG
 export const getFeedPage = (before: number) => get('/feed', { before, limit: FEED_PAGE_SIZE });
 /** Classement de la saison par flammes (30 premiers) : { season, badeurs: [{ rank, user, streak, seasonDays }], me, total }. */
 export const getLeaderboard = () => get('/leaderboard');
+/** Classement par BadeScore (30 premiers) : { badeurs: [{ rank, user, score, level, levelIndex }], me, total }. */
+export const getScoreBoard = () => get('/leaderboard', { type: 'badescore' });
 export const getBading = (badingId: string) => get(`/badings/${id(badingId)}`);
 export const createBading = (b: { text: string; anonymous: boolean; image: { dataUrl: string; ratio: number } | null }) => post('/badings', b);
 export const addBadingView = (badingId: string) => post(`/badings/${id(badingId)}/views`);
