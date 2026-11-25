@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useStore } from '@/data/store';
 
 /**
- * Entry point of shared links: jebade://b/<id>, https://onbade.vercel.app/b/<id>,
+ * Entry point of shared links: jebade://b/<id>, https://www.onbade.com/b/<id>,
  * or exp://…/--/b/<id> in Expo Go. Signed-in users land on the bading; others
  * go through sign-up first and are brought back to it afterwards (Parcours 1).
  */

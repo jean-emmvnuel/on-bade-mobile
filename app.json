@@ -10,7 +10,8 @@
     "ios": {
       "bundleIdentifier": "com.oriverse.jebade",
       "associatedDomains": [
-        "applinks:onbade.vercel.app"
+        "applinks:www.onbade.com",
+        "applinks:onbade.com"
       ],
       "infoPlist": {
         "NSSupportsLiveActivities": true
@@ -32,7 +33,12 @@
           "data": [
             {
               "scheme": "https",
-              "host": "onbade.vercel.app",
+              "host": "www.onbade.com",
+              "pathPrefix": "/b/"
+            },
+            {
+              "scheme": "https",
+              "host": "onbade.com",
               "pathPrefix": "/b/"
             }
           ],
