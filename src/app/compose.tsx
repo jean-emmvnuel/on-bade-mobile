@@ -13,7 +13,7 @@ import { IMAGE_RATIO, ImageCropper, type CropSettings } from '@/components/Image
 import { success } from '@/components/haptics';
 import { useToast } from '@/components/Toast';
 import { Toggle } from '@/components/Toggle';
-import { Verified } from '@/components/Verified';
+import { Legend, Verified } from '@/components/Verified';
 import { countMentions, RULES, useStore, type PublishError } from '@/data/store';
 import { celebrateFlame } from '@/components/FlameCelebration';
 import type { BadingImage, User } from '@/data/types';
@@ -130,7 +130,7 @@ export default function Compose() {
           <View style={{ flex: 1, gap: 6 }}>
             <Animated.View key={anonymous ? 'anon' : 'me'} entering={FadeIn.duration(200)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 22 }}>
               <AppText variant="label" color={anonymous ? colors.text2 : colors.text}>{anonymous ? 'Badeur anonyme' : me?.pseudo}</AppText>
-              {!anonymous && me?.verified && <Verified size={15} />}
+              {!anonymous && me?.verified && <Verified size={15} />}{!anonymous && me?.legend && <Legend size={15} />}
             </Animated.View>
             <TextInput
               autoFocus
@@ -170,6 +170,7 @@ export default function Compose() {
                 <Avatar user={u} size={32} />
                 <AppText variant="label">{u.pseudo}</AppText>
                 {u.verified && <Verified size={14} />}
+{u.legend && <Legend size={14} />}
               </Pressable>
             ))}
           </Animated.View>

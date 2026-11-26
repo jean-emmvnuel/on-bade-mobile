@@ -46,6 +46,8 @@ export function fromServerUser(u: any, ids: IdMapper): User {
   };
   const photo = u.photo ?? u.avatarUrl;
   if (photo) user.photo = photo;
+  if (u.legend) user.legend = true;
+  if (u.legendSince) user.legendSince = u.legendSince;
   if (u.badeScore) user.badeScore = u.badeScore;
   if (u.flames) user.flames = u.flames;
   // Mon profil (il contient l'e-mail) : prénom, nom, délai avant le prochain changement de pseudo (48 h).

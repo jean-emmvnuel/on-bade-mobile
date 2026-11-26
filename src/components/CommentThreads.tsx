@@ -23,7 +23,7 @@ import { Sticker } from './Sticker';
 import { RichText } from './RichText';
 import { Sheet, SheetItem } from './Sheet';
 import { useToast } from './Toast';
-import { Verified } from './Verified';
+import { Legend, Verified } from './Verified';
 
 const PREVIEW_REPLIES = 2;
 
@@ -52,6 +52,7 @@ function CommentRow({ c, reply, showReplyTo, replyCount = 0, collapsed, onToggle
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <AppText variant="label" style={{ fontSize: 14, flexShrink: 1 }} numberOfLines={1}>{u?.pseudo ?? 'Badeur'}</AppText>
           {u?.verified && <Verified size={13} />}
+{u?.legend && <Legend size={13} />}
           <AppText variant="small" color={colors.text3}>· {timeAgo(c.createdAt)}</AppText>
           {first && (
             <View accessibilityLabel="Premier commentaire" style={{ paddingHorizontal: 8, paddingVertical: 1, borderRadius: radius.pill, backgroundColor: 'rgba(255,201,60,0.14)' }}>

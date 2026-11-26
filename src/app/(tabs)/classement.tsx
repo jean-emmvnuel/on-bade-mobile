@@ -10,7 +10,7 @@ import { SeasonCountdown } from '@/components/SeasonCountdown';
 import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { NotificationBell } from '@/components/NotificationBell';
-import { Verified } from '@/components/Verified';
+import { Legend, Verified } from '@/components/Verified';
 import { useStore, type LeaderRow, type ScoreRow, type SeasonInfo, type SeasonReward } from '@/data/store';
 import { ME_ID } from '@/data/seed';
 import { errorMessage } from '@/lib/api';
@@ -92,6 +92,7 @@ function ScoreBoard() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <AppText variant="label" numberOfLines={1} style={{ flexShrink: 1 }}>@{u?.pseudo ?? 'Badeur'}</AppText>
               {u?.verified && <Verified size={13} />}
+{u?.legend && <Legend size={13} />}
               {me && <View style={{ paddingHorizontal: 7, borderRadius: radius.pill, backgroundColor: colors.brand }}><AppText variant="small" color="#fff">Toi</AppText></View>}
             </View>
             <AppText variant="small" color={colors.text3}>{LEVEL_EMOJI[b.levelIndex] ?? '⭐'} {b.level}</AppText>
@@ -212,6 +213,7 @@ export default function Classement() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <AppText variant="label" numberOfLines={1} style={{ flexShrink: 1 }}>@{u?.pseudo ?? 'Badeur'}</AppText>
               {u?.verified && <Verified size={13} />}
+{u?.legend && <Legend size={13} />}
               {me && <View style={{ paddingHorizontal: 7, borderRadius: radius.pill, backgroundColor: colors.brand }}><AppText variant="small" color="#fff">Toi</AppText></View>}
             </View>
             <AppText variant="small" color={colors.text3}>{b.seasonDays} jour{b.seasonDays > 1 ? 's' : ''} actif{b.seasonDays > 1 ? 's' : ''} cette saison</AppText>

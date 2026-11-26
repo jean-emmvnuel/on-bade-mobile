@@ -16,7 +16,7 @@ import { PressableScale } from './PressableScale';
 import { RichText } from './RichText';
 import { useShare } from './ShareSheet';
 import { useToast } from './Toast';
-import { Verified } from './Verified';
+import { Legend, Verified } from './Verified';
 
 function Author({ b, size = 'md' }: { b: Bading; size?: 'md' | 'sm' }) {
   const { users } = useStore();
@@ -28,6 +28,7 @@ function Author({ b, size = 'md' }: { b: Bading; size?: 'md' | 'sm' }) {
         {name}
       </AppText>
       {user?.verified && !b.anonymous && <Verified size={15} />}
+{user?.legend && !b.anonymous && <Legend size={15} />}
       {handle && size === 'md' && (
         <AppText variant="meta" color={colors.text3} numberOfLines={1} style={{ flexShrink: 2 }}>
           {handle}
@@ -135,6 +136,7 @@ export const BadingCard = memo(function BadingCard({ b, onMore, pin }: { b: Badi
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <AppText variant="label" numberOfLines={1} style={{ flexShrink: 1 }} color={anon ? colors.text2 : colors.text}>{n.name}</AppText>
                 {author?.verified && <Verified size={15} />}
+{author?.legend && <Legend size={15} />}
               </View>
               <AppText variant="meta" color={colors.text3} numberOfLines={1}>{n.handle && !anon ? `${n.handle} · ` : ''}{timeAgo(actionTarget.createdAt)}</AppText>
             </View>

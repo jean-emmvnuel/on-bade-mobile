@@ -12,12 +12,12 @@ import { BadingCard } from '@/components/BadingCard';
 import { useBadingActions } from '@/components/BadingActions';
 import { Button } from '@/components/Button';
 import { ImageCropper } from '@/components/ImageCropper';
-import { BadeScore } from '@/components/BadeScore';
+import { BadeScore, LegendCard } from '@/components/BadeScore';
 import { Flames } from '@/components/Flames';
 import { Sheet, SheetItem } from '@/components/Sheet';
 import { PressableScale } from '@/components/PressableScale';
 import { useToast } from '@/components/Toast';
-import { Verified } from '@/components/Verified';
+import { Legend, Verified } from '@/components/Verified';
 import { compact, useStore } from '@/data/store';
 import { errorMessage } from '@/lib/api';
 import { pickImage, type PickedImage } from '@/lib/pickImage';
@@ -106,6 +106,7 @@ export default function Profile() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <AppText variant="title">{me.pseudo}</AppText>
                 {me.verified && <Verified size={20} />}
+{me.legend && <Legend size={20} />}
               </View>
               <AppText variant="meta" color={colors.text3} style={{ textAlign: 'center' }}>@{me.pseudo} · Badeur depuis {joined}</AppText>
               <View style={{ flexDirection: 'row', alignSelf: 'stretch', marginTop: space.md, marginBottom: 6, paddingVertical: space.md, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.line }}>
@@ -116,6 +117,7 @@ export default function Profile() {
                   </View>
                 ))}
               </View>
+              <LegendCard user={me} mine />
               <Flames flames={me.flames} mine />
               <BadeScore score={me.badeScore} mine />
               <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>

@@ -18,7 +18,7 @@ import { LaughButton } from '@/components/LaughButton';
 import { RichText } from '@/components/RichText';
 import { BadingImage } from '@/components/BadingImage';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { Verified } from '@/components/Verified';
+import { Legend, Verified } from '@/components/Verified';
 import { useToast } from '@/components/Toast';
 import { compact, displayName, useStore } from '@/data/store';
 import { errorMessage } from '@/lib/api';
@@ -131,6 +131,7 @@ export default function BadingDetail() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <AppText variant="bodyStrong" color={b.anonymous ? colors.text2 : colors.text}>{name}</AppText>
                 {user?.verified && !b.anonymous && <Verified />}
+{user?.legend && !b.anonymous && <Legend />}
               </View>
               {handle && <AppText variant="meta" color={colors.text3}>{handle}</AppText>}
             </View>

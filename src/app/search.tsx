@@ -6,7 +6,7 @@ import { AppText } from '@/components/AppText';
 import { Avatar } from '@/components/Avatar';
 import { BadingPagedList } from '@/components/BadingPagedList';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { Verified } from '@/components/Verified';
+import { Legend, Verified } from '@/components/Verified';
 import { Search, X } from '@/components/icons';
 import { useStore } from '@/data/store';
 import { colors, fonts, radius, space } from '@/theme/tokens';
@@ -68,6 +68,7 @@ export default function SearchScreen() {
                 <Avatar user={u ?? null} size={40} />
                 <AppText variant="label">@{u?.pseudo ?? 'Badeur'}</AppText>
                 {u?.verified && <Verified size={14} />}
+{u?.legend && <Legend size={14} />}
               </Pressable>
             );
           })}

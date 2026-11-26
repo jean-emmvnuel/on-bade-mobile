@@ -2,6 +2,9 @@ export type User = {
   id: string;
   pseudo: string;
   verified: boolean;
+  /** Badge « Légende du Bade » (BadeScore ≥ 25 000) et date d'arrivée. */
+  legend?: boolean;
+  legendSince?: number;
   /** Couleur de l'initiale quand il n'y a pas de photo. */
   hue: number;
   /** Photo de profil (fichier local recadré en carré, 400 px). En prod : URL du CDN. */

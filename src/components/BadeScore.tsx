@@ -66,3 +66,18 @@ export function BadeScore({ score, mine = false }: { score?: Score; mine?: boole
     </>
   );
 }
+
+/** Encart doré du profil : « Légende du Bade », tant que le BadeScore reste ≥ 25 000. */
+export function LegendCard({ user, mine = false }: { user?: { legend?: boolean; legendSince?: number } | null; mine?: boolean }) {
+  if (!user?.legend) return null;
+  const since = user.legendSince ? new Date(user.legendSince).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
+  return (
+    <View accessibilityLabel="Légende du Bade" style={{ alignSelf: 'stretch', marginTop: space.md, marginHorizontal: space.lg, padding: space.md, flexDirection: 'row', alignItems: 'center', gap: space.md, borderRadius: radius.lg, borderWidth: 1, borderColor: 'rgba(255,214,102,0.5)', backgroundColor: 'rgba(255,214,102,0.16)' }}>
+      <AppText style={{ fontSize: 28 }}>🏆</AppText>
+      <View style={{ flex: 1, gap: 2 }}>
+        <AppText style={{ fontFamily: fonts.display, fontSize: 17, color: '#FFD166' }}>Légende du Bade</AppText>
+        <AppText variant="small" color={colors.text2}>{mine ? 'Tes badings font' : 'Ses badings font'} vibrer On Bade : 25 000 de BadeScore et plus{since ? ` · depuis le ${since}` : ''}</AppText>
+      </View>
+    </View>
+  );
+}

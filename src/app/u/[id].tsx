@@ -5,12 +5,12 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
 import { Avatar } from '@/components/Avatar';
-import { BadeScore } from '@/components/BadeScore';
+import { BadeScore, LegendCard } from '@/components/BadeScore';
 import { BadingPagedList } from '@/components/BadingPagedList';
 import { Button } from '@/components/Button';
 import { Flames } from '@/components/Flames';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { Verified } from '@/components/Verified';
+import { Legend, Verified } from '@/components/Verified';
 import { useStore } from '@/data/store';
 import { ME_ID } from '@/data/seed';
 import { colors, radius, space } from '@/theme/tokens';
@@ -37,8 +37,10 @@ export default function UserProfile() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
         <AppText variant="title">{user?.pseudo ?? ref}</AppText>
         {user?.verified && <Verified size={20} />}
+{user?.legend && <Legend size={20} />}
       </View>
       {user ? <AppText variant="meta" color={colors.text3}>@{user.pseudo} · Badeur depuis {joined}</AppText> : null}
+      {!isBlocked ? <LegendCard user={user} /> : null}
       {!isBlocked && user?.flames ? <View style={{ alignSelf: 'stretch', marginTop: space.md }}><Flames flames={user.flames} /></View> : null}
       {!isBlocked && user?.badeScore ? <BadeScore score={user.badeScore} /> : null}
       {isBlocked ? (
